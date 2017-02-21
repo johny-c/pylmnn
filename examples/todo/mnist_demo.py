@@ -58,6 +58,6 @@ def main(autotune=True, load=0):
 
 
 if __name__ == '__main__':
-    main(False, 123)
+    main(False, 0)
 
 

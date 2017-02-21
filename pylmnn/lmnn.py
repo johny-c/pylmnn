@@ -198,6 +198,25 @@ class LMNN:
         :param margin_radii:    Nx1 vector of distances to the farthest target neighbors + margin
         :return: Px1 vectors imp1 and imp2, samples that violate the margin of other sample(s)
         """
+        N = self.X.shape[0]
+
+        def find_imps(x1, x2, t1, t2):
+            minibatch_size = 5000
+            n = len(t1)
+            im1, im2 = [], []
+            for i in range(0, n, minibatch_size):
+                bb = min(minibatch_size, n-i)
+                doi = pw.euclidean_distances(x1[i:i+bb], x2, squared=True)
+                i1, j1 = np.where(doi < t1[i:i+bb, None])
+                i2, j2 = np.where(doi < t2[None, :])
+                if len(i1):
+                    im1.extend(i1 + i)
+                    im2.extend(j1)
+                if len(i2):
+                    im1.extend(i2 + i)
+                    im2.extend(j2)
+
+            return im1, im2
 
         # Initialize impostors vectors
         imp1, imp2 = [], []
@@ -209,26 +228,31 @@ class LMNN:
             # idx_in = np.random.permutation(idx_in)
             # idx_out = np.random.permutation(idx_out)
 
-            logging.debug('Computing distances OUT x IN (class {})...'.format(label))
-            dist_out_in = pw.euclidean_distances(Lx[idx_out, :], Lx[idx_in, :], squared=True)  # nout x nin
-            logging.debug('Conditioning on margin violations in -> out...')
-            i1, j1 = np.where(dist_out_in < margin_radii[idx_out][:, None])
-            logging.debug('Conditioning on margin violations out -> in...')
-            i2, j2 = np.where(dist_out_in < margin_radii[idx_in][None, :])
+            # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory (1 MB)
+            ii, jj = find_imps(Lx[idx_out], Lx[idx_in], margin_radii[idx_out], margin_radii[idx_in])
+            if len(ii):
+                imp1.extend(idx_out[ii])
+                imp2.extend(idx_in[jj])
 
-            # j1 are impostors to i1
-            if len(i1):
-                i1, j1 = idx_out[i1], idx_in[j1]
-                imp1.extend(i1)
-                imp2.extend(j1)
+            # logging.debug('Computing distances OUT x IN (class {})...'.format(label))
+            # dist_out_in = pw.euclidean_distances(Lx[idx_out, :], Lx[idx_in, :], squared=True)  # nout x nin
+            # logging.debug('Conditioning on margin violations in -> out...')
+            # i1, j1 = np.where(dist_out_in < margin_radii[idx_out][:, None])
+            # logging.debug('Conditioning on margin violations out -> in...')
+            # i2, j2 = np.where(dist_out_in < margin_radii[idx_in][None, :])
+            #
+            # # j1 are impostors to i1
+            # if len(i1):
+            #     i1, j1 = idx_out[i1], idx_in[j1]
+            #     imp1.extend(i1)
+            #     imp2.extend(j1)
+            #
+            # # i2 are impostors to j2
+            # if len(i2):
+            #     i2, j2 = idx_out[i2], idx_in[j2]
+            #     imp1.extend(i2)
+            #     imp2.extend(j2)
 
-            # i2 are impostors to j2
-            if len(i2):
-                i2, j2 = idx_out[i2], idx_in[j2]
-                imp1.extend(i2)
-                imp2.extend(j2)
-
-        N = self.X.shape[0]
         impostors = sparse.coo_matrix((np.ones(len(imp1)), (imp1, imp2)), (N, N), dtype=int)
         imp1, imp2 = impostors.nonzero()
 
