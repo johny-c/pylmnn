@@ -1,12 +1,11 @@
-from time import time
-
 import numpy as np
-from lmnn import LMNN
-from lmnn_utils import test_knn, plot_ba, clean_data
-from sklearn import datasets as skd
+from time import time
+import sklearn.datasets as skd
 from sklearn.model_selection import train_test_split
 
 from pylmnn.lmnn_bayesopt import findLMNNparams
+from pylmnn.lmnn import LMNN
+from pylmnn.lmnn_utils import test_knn, plot_ba, clean_data
 
 
 # Out of memory
@@ -41,8 +40,9 @@ def main(autotune=True, load=0):
         ytr = np.concatenate((ytr, yva))
     else:
         Klmnn, Knn, outdim, maxiter = 3, 3, 300, 120
-
-    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save='lin_transf')
+    # loglevel: DEBUG=10, INFO=20
+    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save='lin_transf',
+                loglevel=10)
     if load == 0:
         # Train full model
         print('Training final model...\n')
@@ -58,6 +58,6 @@ def main(autotune=True, load=0):
 
 
 if __name__ == '__main__':
-    main(False, 0)
+    main(False)
 
 

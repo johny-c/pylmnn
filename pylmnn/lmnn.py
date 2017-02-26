@@ -81,6 +81,7 @@ class LMNN:
                 outdim = D
             self.L = self.L[:outdim]
 
+    # @profile
     def fit(self, X, labels):
         verbose = self.params['verbose']
         tol = self.params['tol']
@@ -90,7 +91,7 @@ class LMNN:
         self._process_inputs(X, labels)
         k = self.params['k']
         print('Parameters:\n')
-        [print('{:10}: {}'.format(k, v)) for k,v in self.params.items()]
+        [print('{:10}: {}'.format(k, v)) for k, v in self.params.items()]
 
         # Initialize L
         self._init_transformer()
@@ -187,7 +188,7 @@ class LMNN:
             inds, = np.where(np.equal(self.label_idx, label))
             dd = pw.euclidean_distances(self.X[inds], squared=True)
             np.fill_diagonal(dd, np.inf)
-            nn = np.argsort(dd)[...,:k]
+            nn = np.argsort(dd)[..., :k]
             target_neighbors[inds] = inds[nn]
         return target_neighbors
 
@@ -200,12 +201,22 @@ class LMNN:
         """
         N = self.X.shape[0]
 
-        def find_imps(x1, x2, t1, t2):
-            minibatch_size = 5000
-            n = len(t1)
+        def find_imps(x1, x2, t1, t2, mem_budget=1e7):
+            """
+            Find impostor pairs in a minibatch fashion to avoid memory outage
+            :param x1: nx1 vector of transformed inputs
+            :param x2: mx1 vector of transformed inputs
+            :param t1: nx1 vector of distances to margins
+            :param t2: mx1 vector of distances to margins
+            :param mem_budget: memory budget (in bytes) for intermediate distance computations (
+            default: 1e7 = 10 MB)
+            :return: px1, px1, impostor pairs vectors
+            """
+            n, m = len(t1), len(t2)
+            minibatch_size = int(mem_budget / (8*m))
             im1, im2 = [], []
             for i in range(0, n, minibatch_size):
-                bb = min(minibatch_size, n-i)
+                bb = min(minibatch_size, n - i)
                 doi = pw.euclidean_distances(x1[i:i+bb], x2, squared=True)
                 i1, j1 = np.where(doi < t1[i:i+bb, None])
                 i2, j2 = np.where(doi < t2[None, :])
@@ -229,6 +240,8 @@ class LMNN:
             # idx_out = np.random.permutation(idx_out)
 
             # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory (1 MB)
+            logging.debug('Impostor classes {} to class {}..'.
+                          format(self.labels[self.labels > label], label))
             ii, jj = find_imps(Lx[idx_out], Lx[idx_in], margin_radii[idx_out], margin_radii[idx_in])
             if len(ii):
                 imp1.extend(idx_out[ii])

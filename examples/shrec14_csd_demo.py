@@ -1,10 +1,10 @@
-from time import time
 import numpy as np
+from time import time
 import sklearn.preprocessing as prep
-from lmnn import LMNN
-from lmnn_bayesopt import findLMNNparams
-from lmnn_utils import test_knn, plot_ba
 from sklearn.model_selection import train_test_split
+from pylmnn.lmnn_bayesopt import findLMNNparams
+from pylmnn.lmnn import LMNN
+from pylmnn.lmnn_utils import test_knn, plot_ba
 
 
 def load_shape_data(data_dir='shrec14_data', real=False, desc='csd'):

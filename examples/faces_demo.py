@@ -1,10 +1,10 @@
-from time import time
 import numpy as np
-from lmnn import LMNN
-from lmnn_utils import test_knn, plot_ba, clean_data
-from lmnn_bayesopt import findLMNNparams
+from time import time
 import sklearn.datasets as skd
 from sklearn.model_selection import train_test_split
+from pylmnn.lmnn_bayesopt import findLMNNparams
+from pylmnn.lmnn import LMNN
+from pylmnn.lmnn_utils import test_knn, plot_ba, clean_data
 
 
 def main(autotune=True, load=0):

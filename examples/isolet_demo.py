@@ -1,9 +1,9 @@
-from time import time
 import numpy as np
-from lmnn import LMNN
-from lmnn_bayesopt import findLMNNparams
-from lmnn_utils import test_knn, plot_ba, clean_data
+from time import time
 from sklearn.model_selection import train_test_split
+from pylmnn.lmnn import LMNN
+from pylmnn.lmnn_bayesopt import findLMNNparams
+from pylmnn.lmnn_utils import test_knn, plot_ba, clean_data
 
 
 def fetch_load_data():

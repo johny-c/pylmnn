@@ -1,9 +1,9 @@
-from time import time
 import numpy as np
-from lmnn import LMNN
-from lmnn_utils import test_knn, plot_ba
+from time import time
 from sklearn.model_selection import train_test_split
-from lmnn_bayesopt import findLMNNparams
+from pylmnn.lmnn import LMNN
+from pylmnn.lmnn_bayesopt import findLMNNparams
+from pylmnn.lmnn_utils import test_knn, plot_ba
 
 
 def fetch_load_data():
@@ -52,8 +52,8 @@ def main(autotune=True, load=0):
         ytr = np.concatenate((ytr, yva))
     else:
         Klmnn, Knn, outdim, maxiter = 1, 1, 16, 82
-
-    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save=None)
+        # logging levels: DEBUG=10, INFO=20
+    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save=None, loglevel=10)
     if load == 0:
         # Train full model
         print('Training final model...\n')

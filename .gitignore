@@ -45,7 +45,7 @@ Thumbs.db
 *.gz
 *.bbl
 
-# IDE #
+# IDE, python #
 #######
 .idea/
 __pycache__/
@@ -55,6 +55,7 @@ build/
 *.egg-info
 dist
 _build
+.ipynb_checkpoints/
 
 # Project Specific #
 ####################

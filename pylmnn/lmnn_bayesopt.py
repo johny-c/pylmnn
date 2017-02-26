@@ -1,8 +1,7 @@
 import numpy as np
 from GPyOpt.methods import BayesianOptimization
 from sklearn.neighbors import KNeighborsClassifier
-
-from pylmnn.lmnn import LMNN
+from .lmnn import LMNN
 
 
 def findLMNNparams(xtr, ytr, xva, yva):
