@@ -13,9 +13,9 @@ def findLMNNparams(xtr, ytr, xva, yva, max_trials=12):
     :param yva: MxD validation labels
     :param max_trials: maximum number of hyper-parameter configurations to evaluate
     :return: Klmnn, optimal number of target neighbors during training,
-            knn,   optimal number of reference neighbors during testing,
-            outdim, optimal dimensionality for the transformed inputs,
-            maxiter, optimal number of iterations for the optimization routine
+             knn,   optimal number of reference neighbors during testing,
+             outdim, optimal dimensionality for the transformed inputs,
+             maxiter, optimal number of iterations for the optimization routine
     """
 
     unique_labels, class_sizes = np.unique(ytr, return_counts=True)

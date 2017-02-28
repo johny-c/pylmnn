@@ -20,7 +20,7 @@
 import os
 import sys
 
-sys.path.insert(0, os.environ['HOME'] + '/projects/pylmnn')
+sys.path.insert(0, os.environ['HOME'] + '/projects/pylmnn/pylmnn')
 
 
 # -- General configuration ------------------------------------------------

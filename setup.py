@@ -34,7 +34,7 @@ if __name__ == '__main__':
                     'Programming Language :: Python :: 3.5',
                     'Topic :: Scientific/Engineering :: Artificial Intelligence'],
 
-        packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+        packages=find_packages(exclude=['contrib', 'docs', 'tests', 'examples']),
         # packages=['pylmnn', ''],
         package_dir={'pylmnn': 'pylmnn'},
         install_requires=['numpy>=1.11',
