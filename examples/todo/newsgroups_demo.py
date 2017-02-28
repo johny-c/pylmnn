@@ -1,14 +1,14 @@
 from time import time
-
 import numpy as np
+
+from pylmnn.bayesopt import findLMNNparams
+from pylmnn.lmnn import LMNN
+from pylmnn.helpers import test_knn, plot_ba
+
 import sklearn.datasets as skd
-from lmnn import LMNN
-from lmnn_utils import test_knn, plot_ba
 from sklearn.decomposition import TruncatedSVD
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
-
-from pylmnn.lmnn_bayesopt import findLMNNparams
 
 
 # Out of memory
@@ -26,7 +26,6 @@ def main(autotune=True, load=0):
     svd = TruncatedSVD(n_components=200, n_iter=7, random_state=42)
     X = svd.fit_transform(X)
     print('Explained variance ratio: {}'.format(sum(svd.explained_variance_ratio_)))
-    # X = clean_data(X, var=0.95)
     xtr, xte = X[:len(news_train.data)], X[len(news_train.data):]
 
     # xtr, xte, ytr, yte = train_test_split(X, y, test_size=0.3, stratify=y)
@@ -50,7 +49,7 @@ def main(autotune=True, load=0):
     else:
         Klmnn, Knn, outdim, maxiter = 15, 3, 28, 25
 
-    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save=None)
+    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save=None, loglevel=10)
     if load == 0:
         # Train full model
         print('Training final model...\n')
@@ -66,4 +65,4 @@ def main(autotune=True, load=0):
 
 
 if __name__ == '__main__':
-    main(True)
+    main(False)

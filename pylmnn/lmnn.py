@@ -49,7 +49,7 @@ class LMNN:
             X = self.X
         return X @ self.L.T
 
-    def _process_inputs(self, X, labels):
+    def _check_inputs(self, X, labels):
         assert len(labels) == X.shape[0], "Number of labels ({}) does not match the number of " \
                                           "points ({})!".format(len(labels), X.shape[0])
         unique_labels, self.label_idx = np.unique(labels, return_inverse=True)
@@ -81,14 +81,13 @@ class LMNN:
                 outdim = D
             self.L = self.L[:outdim]
 
-    # @profile
     def fit(self, X, labels):
         verbose = self.params['verbose']
         tol = self.params['tol']
         max_iter = self.params['max_iter']
 
         # Check data consistency and initialize label counts
-        self._process_inputs(X, labels)
+        self._check_inputs(X, labels)
         k = self.params['k']
         print('Parameters:\n')
         [print('{:10}: {}'.format(k, v)) for k, v in self.params.items()]
@@ -235,29 +234,6 @@ class LMNN:
         return imp1, imp2, dist
 
     @staticmethod
-    def _SODWsp(x, weights, check=False):
-        """
-        Computes the sum of weighted outer products using a sparse weights matrix
-        :param x:           NxD matrix consisting of N row vectors
-        :param weights:     NxN csr_matrix, target neighbors
-        :param check:       flag, if True rows and columns of the symmetrized weights matrix that
-                            are zero are removed (default: False)
-        :return:            DxD the sum of all weighted outer products
-        """
-        weights_sym = weights + weights.T
-        if check:
-            _, cols = weights_sym.nonzero()
-            idx = np.unique(cols)
-            weights_sym = weights_sym.tocsc()[:, idx].tocsr()[idx, :]
-            x = x[idx]
-
-        n = weights_sym.shape[0]
-        diag = sparse.spdiags(weights_sym.sum(axis=0), 0, n, n)
-        laplacian = diag.tocsr() - weights_sym
-        sodw = x.T @ laplacian @ x
-        return sodw
-
-    @staticmethod
     def _find_imps(x1, x2, t1, t2, mem_budget=1e7):
         """
         Find impostor pairs in a minibatch fashion to avoid large memory usage
@@ -289,6 +265,29 @@ class LMNN:
         return im1, im2, dists
 
     @staticmethod
+    def _SODWsp(x, weights, check=False):
+        """
+        Computes the sum of weighted outer products using a sparse weights matrix
+        :param x:           NxD matrix consisting of N row vectors
+        :param weights:     NxN csr_matrix, target neighbors
+        :param check:       flag, if True rows and columns of the symmetrized weights matrix that
+                            are zero are removed (default: False)
+        :return:            DxD the sum of all weighted outer products
+        """
+        weights_sym = weights + weights.T
+        if check:
+            _, cols = weights_sym.nonzero()
+            idx = np.unique(cols)
+            weights_sym = weights_sym.tocsc()[:, idx].tocsr()[idx, :]
+            x = x[idx]
+
+        n = weights_sym.shape[0]
+        diag = sparse.spdiags(weights_sym.sum(axis=0), 0, n, n)
+        laplacian = diag.tocsr() - weights_sym
+        sodw = x.T @ laplacian @ x
+        return sodw
+
+    @staticmethod
     def _cdist(x, a, b, mem_budget=1e7):
         """ Equivalent to  np.sum(np.square(x[a] - x[b]), axis=1) """
         n = len(a)
@@ -299,7 +298,6 @@ class LMNN:
             bb = min(minibatch_size, n - i)
             # ind = k:min(k + minibatch_size - 1, n)
             res[i:i+bb] = np.sum(np.square(x[a[i:i+bb]] - x[b[i:i+bb]]), axis=1)
-
         return res
 
     @staticmethod
