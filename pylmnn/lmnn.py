@@ -47,7 +47,7 @@ class LMNN:
     def transform(self, X=None):
         if X is None:
             X = self.X
-        return X.dot(self.L.T)
+        return X @ self.L.T
 
     def _process_inputs(self, X, labels):
         assert len(labels) == X.shape[0], "Number of labels ({}) does not match the number of " \
@@ -152,7 +152,7 @@ class LMNN:
         margin_radii = np.add(dist_tn[:, -1], 2)
         imp1, imp2 = self._find_impostors(Lx, margin_radii)
         logging.debug('Computing distances to impostors under new L...')
-        dist_imp = np.sum(np.square(Lx[imp1] - Lx[imp2]), axis=1)
+        dist_imp = self._cdist(Lx, imp1, imp2)
 
         logging.debug('Computing loss and gradient under new L...')
         loss = 0
@@ -185,11 +185,16 @@ class LMNN:
         k = self.params['k']
         target_neighbors = np.empty((self.X.shape[0], k), dtype=int)
         for label in self.labels:
-            inds, = np.where(np.equal(self.label_idx, label))
-            dd = pw.euclidean_distances(self.X[inds], squared=True)
-            np.fill_diagonal(dd, np.inf)
-            nn = np.argsort(dd)[..., :k]
-            target_neighbors[inds] = inds[nn]
+            ind, = np.where(np.equal(self.label_idx, label))
+            dist = pw.euclidean_distances(self.X[ind], squared=True)
+            np.fill_diagonal(dist, np.inf)
+            neigh_ind = np.argpartition(dist, k-1, axis=1)
+            neigh_ind = neigh_ind[:, :k]
+            # argpartition doesn't guarantee sorted order, so we sort again but only the k neighbors
+            row_ind = np.arange(len(dist))[:, None]
+            neigh_ind = neigh_ind[row_ind, np.argsort(dist[row_ind, neigh_ind])]
+            target_neighbors[ind] = ind[neigh_ind]
+
         return target_neighbors
 
     def _find_impostors(self, Lx, margin_radii):
@@ -201,36 +206,8 @@ class LMNN:
         """
         N = self.X.shape[0]
 
-        def find_imps(x1, x2, t1, t2, mem_budget=1e7):
-            """
-            Find impostor pairs in a minibatch fashion to avoid memory outage
-            :param x1: nx1 vector of transformed inputs
-            :param x2: mx1 vector of transformed inputs
-            :param t1: nx1 vector of distances to margins
-            :param t2: mx1 vector of distances to margins
-            :param mem_budget: memory budget (in bytes) for intermediate distance computations (
-            default: 1e7 = 10 MB)
-            :return: px1, px1, impostor pairs vectors
-            """
-            n, m = len(t1), len(t2)
-            minibatch_size = int(mem_budget / (8*m))
-            im1, im2 = [], []
-            for i in range(0, n, minibatch_size):
-                bb = min(minibatch_size, n - i)
-                doi = pw.euclidean_distances(x1[i:i+bb], x2, squared=True)
-                i1, j1 = np.where(doi < t1[i:i+bb, None])
-                i2, j2 = np.where(doi < t2[None, :])
-                if len(i1):
-                    im1.extend(i1 + i)
-                    im2.extend(j1)
-                if len(i2):
-                    im1.extend(i2 + i)
-                    im2.extend(j2)
-
-            return im1, im2
-
         # Initialize impostors vectors
-        imp1, imp2 = [], []
+        imp1, imp2, dists = [], [], []
         logging.debug('Now computing impostor vectors...')
         for label in self.labels[:-1]:
             idx_in, = np.where(np.equal(self.label_idx, label))
@@ -242,34 +219,17 @@ class LMNN:
             # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory (1 MB)
             logging.debug('Impostor classes {} to class {}..'.
                           format(self.labels[self.labels > label], label))
-            ii, jj = find_imps(Lx[idx_out], Lx[idx_in], margin_radii[idx_out], margin_radii[idx_in])
+            ii, jj = self._find_imps(Lx[idx_out], Lx[idx_in],
+                                         margin_radii[idx_out], margin_radii[idx_in])
             if len(ii):
                 imp1.extend(idx_out[ii])
                 imp2.extend(idx_in[jj])
-
-            # logging.debug('Computing distances OUT x IN (class {})...'.format(label))
-            # dist_out_in = pw.euclidean_distances(Lx[idx_out, :], Lx[idx_in, :], squared=True)  # nout x nin
-            # logging.debug('Conditioning on margin violations in -> out...')
-            # i1, j1 = np.where(dist_out_in < margin_radii[idx_out][:, None])
-            # logging.debug('Conditioning on margin violations out -> in...')
-            # i2, j2 = np.where(dist_out_in < margin_radii[idx_in][None, :])
-            #
-            # # j1 are impostors to i1
-            # if len(i1):
-            #     i1, j1 = idx_out[i1], idx_in[j1]
-            #     imp1.extend(i1)
-            #     imp2.extend(j1)
-            #
-            # # i2 are impostors to j2
-            # if len(i2):
-            #     i2, j2 = idx_out[i2], idx_in[j2]
-            #     imp1.extend(i2)
-            #     imp2.extend(j2)
+                # dists.extend(dd)
 
         impostors = sparse.coo_matrix((np.ones(len(imp1)), (imp1, imp2)), (N, N), dtype=int)
         imp1, imp2 = impostors.nonzero()
 
-        return np.asarray(imp1), np.asarray(imp2)
+        return imp1, imp2
 
     @staticmethod
     def _SODWsp(x, weights, check=False):
@@ -293,6 +253,51 @@ class LMNN:
         laplacian = diag.tocsr() - weights_sym
         sodw = x.T @ laplacian @ x
         return sodw
+
+    @staticmethod
+    def _find_imps(x1, x2, t1, t2, mem_budget=1e7):
+        """
+        Find impostor pairs in a minibatch fashion to avoid large memory usage
+        :param x1: nx1 vector of transformed inputs
+        :param x2: mx1 vector of transformed inputs, where always m < n
+        :param t1: nx1 vector of distances to margins
+        :param t2: mx1 vector of distances to margins
+        :param mem_budget: memory budget (in bytes) for intermediate distance computations (
+        default: 1e7 = 10 MB)
+        :return: px1, px1, impostor pairs vectors
+        """
+        n, m = len(t1), len(t2)
+        minibatch_size = int(mem_budget / (8 * m))
+        im1, im2, dists = [], [], []
+        for i in range(0, n, minibatch_size):
+            bb = min(minibatch_size, n - i)
+            dist_out_in = pw.euclidean_distances(x1[i:i + bb], x2, squared=True)
+            i1, j1 = np.where(dist_out_in < t1[i:i + bb, None])
+            i2, j2 = np.where(dist_out_in < t2[None, :])
+            if len(i1):
+                im1.extend(i1 + i)
+                im2.extend(j1)
+                # dists.extend(dist_out_in[i1, j1])
+            if len(i2):
+                im1.extend(i2 + i)
+                im2.extend(j2)
+                # dists.extend(dist_out_in[i2, j2])
+
+        return im1, im2  # , dists
+
+    @staticmethod
+    def _cdist(x, a, b, mem_budget=1e7):
+        """ Equivalent to  np.sum(np.square(x[a] - x[b]), axis=1) """
+        n = len(a)
+        d = x.shape[1]
+        minibatch_size = int(mem_budget / (8 * d))
+        res = np.zeros(n)
+        for i in range(0, n, minibatch_size):
+            bb = min(minibatch_size, n - i)
+            # ind = k:min(k + minibatch_size - 1, n)
+            res[i:i+bb] = np.sum(np.square(x[a[i:i+bb]] - x[b[i:i+bb]]), axis=1)
+
+        return res
 
     def load_stored(self, iteration):
         """
