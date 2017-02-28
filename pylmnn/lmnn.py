@@ -150,9 +150,9 @@ class LMNN:
         # Compute distances to impostors under L
         logging.debug('Setting margin radii...')
         margin_radii = np.add(dist_tn[:, -1], 2)
-        imp1, imp2 = self._find_impostors(Lx, margin_radii)
-        logging.debug('Computing distances to impostors under new L...')
-        dist_imp = self._cdist(Lx, imp1, imp2)
+        imp1, imp2, dist_imp = self._find_impostors(Lx, margin_radii)
+        # logging.debug('Computing distances to impostors under new L...')
+        # dist_imp = self._cdist(Lx, imp1, imp2)
 
         logging.debug('Computing loss and gradient under new L...')
         loss = 0
@@ -207,7 +207,7 @@ class LMNN:
         N = self.X.shape[0]
 
         # Initialize impostors vectors
-        imp1, imp2, dists = [], [], []
+        imp1, imp2, dist = [], [], []
         logging.debug('Now computing impostor vectors...')
         for label in self.labels[:-1]:
             idx_in, = np.where(np.equal(self.label_idx, label))
@@ -219,17 +219,20 @@ class LMNN:
             # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory (1 MB)
             logging.debug('Impostor classes {} to class {}..'.
                           format(self.labels[self.labels > label], label))
-            ii, jj = self._find_imps(Lx[idx_out], Lx[idx_in],
+            ii, jj, dd = self._find_imps(Lx[idx_out], Lx[idx_in],
                                          margin_radii[idx_out], margin_radii[idx_in])
             if len(ii):
                 imp1.extend(idx_out[ii])
                 imp2.extend(idx_in[jj])
-                # dists.extend(dd)
+                dist.extend(dd)
 
-        impostors = sparse.coo_matrix((np.ones(len(imp1)), (imp1, imp2)), (N, N), dtype=int)
-        imp1, imp2 = impostors.nonzero()
-
-        return imp1, imp2
+        # impostors = sparse.coo_matrix((np.ones(len(imp1)), (imp1, imp2)), (N, N), dtype=int)
+        # imp1, imp2 = impostors.nonzero()
+        idx = self._unique_pairs(imp1, imp2, N)
+        imp1 = np.asarray(imp1)[idx]
+        imp2 = np.asarray(imp2)[idx]
+        dist = np.asarray(dist)[idx]
+        return imp1, imp2, dist
 
     @staticmethod
     def _SODWsp(x, weights, check=False):
@@ -277,13 +280,13 @@ class LMNN:
             if len(i1):
                 im1.extend(i1 + i)
                 im2.extend(j1)
-                # dists.extend(dist_out_in[i1, j1])
+                dists.extend(dist_out_in[i1, j1])
             if len(i2):
                 im1.extend(i2 + i)
                 im2.extend(j2)
-                # dists.extend(dist_out_in[i2, j2])
+                dists.extend(dist_out_in[i2, j2])
 
-        return im1, im2  # , dists
+        return im1, im2, dists
 
     @staticmethod
     def _cdist(x, a, b, mem_budget=1e7):
@@ -298,6 +301,16 @@ class LMNN:
             res[i:i+bb] = np.sum(np.square(x[a[i:i+bb]] - x[b[i:i+bb]]), axis=1)
 
         return res
+
+    @staticmethod
+    def _unique_pairs(i, j, n):
+        # First generate a hash array
+        h = np.array([a * n + b for a, b in zip(i, j)])
+
+        # Get the indices of the unique elements in the hash array
+        _, idx = np.unique(h, return_index=True)
+        logging.debug('Found {} unique pairs out of {}.'.format(len(idx), len(h)))
+        return idx
 
     def load_stored(self, iteration):
         """

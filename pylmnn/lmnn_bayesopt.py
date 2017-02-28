@@ -4,7 +4,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from .lmnn import LMNN
 
 
-def findLMNNparams(xtr, ytr, xva, yva):
+def findLMNNparams(xtr, ytr, xva, yva, max_trials=12):
     """
     Find optimal hyperparameters using Bayesian Optimization
     :param xtr: NxD training inputs
@@ -24,7 +24,7 @@ def findLMNNparams(xtr, ytr, xva, yva):
     class BOptions: pass
 
     opt = BOptions()
-    opt.maxtrials = 12  # How many parameter settings do you want to try?
+    opt.maxtrials = max_trials  # How many parameter settings do you want to try?
     opt.minK = 1
     opt.maxK = int(min(min_class_size-1, 15))
     opt.minIter = 10
