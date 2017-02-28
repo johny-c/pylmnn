@@ -40,10 +40,6 @@ The simplest use case would be something like:
 
 You can check the examples directory for examples of how to use the code.
 
-#### Disclaimer
-
-This is still under development. The current version of the code is fast but can be very memory hungry.
-
 #### References
 
 If you use this code in your work, please cite the following <a name="paper">publication</a>.
