@@ -48,6 +48,7 @@ def main(autotune=True, load=0):
     print('Loading dataset...')
     xtr, xte, ytr, yte = fetch_load_data()
     n, d = xtr.shape
+    print('{} images in total'.format(len(ytr) + len(yte)))
     print('{} training images of dimension {}'.format(n, d))
 
     print('Cleaning dataset...')

@@ -21,6 +21,7 @@ def main(autotune=True, load=0):
     xtr, xte = X[:xtr.shape[0]], X[xtr.shape[0]:]
 
     n, d = xtr.shape
+    print('{} images in total'.format(len(ytr) + len(yte)))
     print('{} training images of dimension {}'.format(n, d))
 
     if autotune:

@@ -11,6 +11,7 @@ def main(autotune=True, load=0):
     print('Loading dataset...')
     dataset = skd.fetch_olivetti_faces(shuffle=True)
     X, y = dataset.data, dataset.target
+    print('{} images in total'.format(X.shape[0]))
 
     print('Cleaning dataset...')
     X = clean_data(X, var_ratio=0.95)

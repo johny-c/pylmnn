@@ -17,6 +17,7 @@ def main(autotune=True, load=0):
 
     xtr, xte, ytr, yte = train_test_split(X, y, test_size=0.3, stratify=y)
     n, d = xtr.shape
+    print('{} images in total'.format(len(ytr) + len(yte)))
     print('{} training images of dimension {}'.format(n, d))
 
     if autotune:
