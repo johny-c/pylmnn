@@ -1,14 +1,15 @@
 import numpy as np
 from time import time
 from sklearn.model_selection import train_test_split
+from sklearn.datasets import get_data_home
 from pylmnn.lmnn import LMNN
 from pylmnn.bayesopt import findLMNNparams
 from pylmnn.helpers import test_knn, plot_ba
 
 
-def fetch_load_data():
+def fetch_load_data(data_dir=None):
     import csv, os
-    path = os.path.join(os.getenv('HOME'), 'scikit_learn_data', 'letter-recognition.data')
+    path = os.path.join(get_data_home(data_dir), 'letter-recognition.data')
 
     if not os.path.exists(path):
         from urllib import request

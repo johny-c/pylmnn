@@ -1,17 +1,18 @@
 import numpy as np
 from time import time
 from sklearn.model_selection import train_test_split
+from sklearn.datasets import get_data_home
 from pylmnn.lmnn import LMNN
 from pylmnn.bayesopt import findLMNNparams
 from pylmnn.helpers import test_knn, plot_ba, clean_data
 
 
-def fetch_load_data():
+def fetch_load_data(data_dir=None):
     import csv, os
     train = 'isolet1+2+3+4.data.Z'
     test = 'isolet5.data.Z'
-    path_train = os.path.join(os.getenv('HOME'), 'scikit_learn_data', train)
-    path_test  = os.path.join(os.getenv('HOME'), 'scikit_learn_data', test)
+    path_train = os.path.join(get_data_home(data_dir), train)
+    path_test  = os.path.join(get_data_home(data_dir), test)
 
     if not os.path.exists(path_train) or not os.path.exists(path_test):
         from urllib import request

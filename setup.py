@@ -13,7 +13,7 @@ with open(path.join(here, 'README.md'), encoding='utf-8') as f:
 
 setup(
     name='PyLMNN',
-    version='0.1.0',
+    version='0.2.0',
     description='LMNN implementation in python',
     long_description=long_description,
     url='https://github.com/johny-c/pylmnn.git',
@@ -25,8 +25,8 @@ setup(
                 'Development Status :: 3 - Alpha',
                 'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
                 'Natural Language :: English',
-                # 'Operating System :: MacOS :: MacOS X',
-                # 'Operating System :: Microsoft :: Windows',
+                'Operating System :: MacOS :: MacOS X',
+                'Operating System :: Microsoft :: Windows',
                 'Operating System :: POSIX :: Linux',
                 'Programming Language :: Python :: 3',
                 'Programming Language :: Python :: 3.5',
