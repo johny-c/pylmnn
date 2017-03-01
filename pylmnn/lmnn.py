@@ -17,7 +17,8 @@ class LMNN:
     Copyright (c) 2017, John Chiotellis
     Licensed under the GPLv3 license (see LICENSE.txt)
     """
-    def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=True, outdim=None, save=None, loglevel=logging.INFO):
+    def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=True, outdim=None,
+                 load=None, save=None, temp_dir='temp_res', loglevel=logging.INFO):
         """
         Instantiate the LMNN classifier
         :param L:           dxD matrix, initial transformation, if None identity or pca will be used
@@ -32,19 +33,27 @@ class LMNN:
                             transformation, if None it is inferred from use_pca and L (default:None)
         :param save:        string, if not None save the intermediate linear transformations in a
                             folder with this string as filename (default: None)
+        :param load:        string, if not None load the intermediate linear transformations in a
+                            folder with this string as filename (default: None)
         :param loglevel:    logging level of verbosity for debugging purposes (default: INFO)
         """
         self.params = dict(k=k, max_iter=max_iter, use_pca=use_pca, tol=tol, verbose=verbose, outdim=outdim)
         self.L = L
         self.targets = None
         self.dfG = None
+        self.load = load
         self.save = save
+        self.tempdir = temp_dir
         self.iter = 0
         self.loglevel = loglevel
-        self.tempdir = 'temp_res'
         logging.basicConfig(stream=sys.stdout, level=self.loglevel)
 
     def transform(self, X=None):
+        """
+        Applies the learned transformation to the inputs
+        :param X: input samples (default: defined when fit is called)
+        :return: transformed inputs
+        """
         if X is None:
             X = self.X
         return X @ self.L.T
@@ -63,7 +72,10 @@ class LMNN:
         self.X = X
 
     def _init_transformer(self):
-        if self.L is not None: return
+        if self.load is not None:
+            self.L = np.load(os.path.join(self.tempdir, self.load))
+            return
+
         if self.params['use_pca']:
             cc = np.cov(self.X, rowvar=False)  # Mean is removed
             evals, evecs = LA.eigh(cc)  # Get evals in ascending order, evecs in columns
@@ -82,6 +94,13 @@ class LMNN:
             self.L = self.L[:outdim]
 
     def fit(self, X, labels):
+        """
+        Finds a linear transformation by optimisation of the unconstrained problem,
+        such that the k-nearest neighbor classification accuracy improves
+        :param X: {n_samples, n_features} training samples
+        :param labels: {n_samples} class labels of training samples
+        :return: self, loss and details produced by the optimiser
+        """
         verbose = self.params['verbose']
         tol = self.params['tol']
         max_iter = self.params['max_iter']
@@ -247,22 +266,22 @@ class LMNN:
         """
         n, m = len(t1), len(t2)
         minibatch_size = int(mem_budget / (8 * m))
-        im1, im2, dists = [], [], []
+        imp1, imp2, dist = [], [], []
         for i in range(0, n, minibatch_size):
             bb = min(minibatch_size, n - i)
             dist_out_in = pw.euclidean_distances(x1[i:i + bb], x2, squared=True)
             i1, j1 = np.where(dist_out_in < t1[i:i + bb, None])
             i2, j2 = np.where(dist_out_in < t2[None, :])
             if len(i1):
-                im1.extend(i1 + i)
-                im2.extend(j1)
-                dists.extend(dist_out_in[i1, j1])
+                imp1.extend(i1 + i)
+                imp2.extend(j1)
+                dist.extend(dist_out_in[i1, j1])
             if len(i2):
-                im1.extend(i2 + i)
-                im2.extend(j2)
-                dists.extend(dist_out_in[i2, j2])
+                imp1.extend(i2 + i)
+                imp2.extend(j2)
+                dist.extend(dist_out_in[i2, j2])
 
-        return im1, im2, dists
+        return imp1, imp2, dist
 
     @staticmethod
     def _SODWsp(x, weights, check=False):

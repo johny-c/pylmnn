@@ -24,7 +24,8 @@ def main(autotune=True, load=0):
 
     print('Cleaning dataset...')
     svd = TruncatedSVD(n_components=200, n_iter=7, random_state=42)
-    X = svd.fit_transform(X)
+    X = svd.fit_transform(X)  # X is now a dense numpy array
+
     print('Explained variance ratio: {}'.format(sum(svd.explained_variance_ratio_)))
     xtr, xte = X[:len(news_train.data)], X[len(news_train.data):]
 

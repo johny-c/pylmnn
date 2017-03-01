@@ -3,12 +3,12 @@ from time import time
 import sklearn.datasets as skd
 from sklearn.model_selection import train_test_split
 
-from pylmnn.bayesopt import findLMNNparams
 from pylmnn.lmnn import LMNN
+from pylmnn.bayesopt import findLMNNparams
 from pylmnn.helpers import test_knn, plot_ba, clean_data
 
 
-def main(autotune=True, load=0):
+def main(autotune=True, load=None):
     print('Loading dataset...')
     mnist = skd.fetch_mldata("MNIST original")
     # rescale the data, use the traditional train/test split
@@ -26,31 +26,33 @@ def main(autotune=True, load=0):
 
     if autotune:
         # Separate in training and validation set
-        xtr, xva, ytr, yva = train_test_split(xtr, ytr, train_size=0.05, stratify=ytr)
+        xtr, xva, ytr, yva = train_test_split(xtr, ytr, train_size=0.1, stratify=ytr)
 
         # LMNN hyper-parameter tuning
         print('Searching for optimal LMNN params...\n')
         t_lmnnParams = time()
-        Klmnn, Knn, outdim, maxiter = findLMNNparams(xtr, ytr, xva, yva)
+        Klmnn, Knn, outdim, maxiter = findLMNNparams(xtr, ytr, xva, yva, max_trials=50)
         t_bo = time() - t_lmnnParams
-        print('Found optimal LMNN params for %d points in %s\n' % (len(ytr), t_bo))
+        print('Found optimal LMNN params for %d points in %s s\n' % (len(ytr), t_bo))
 
         # Reconstruct full training set
         xtr = np.concatenate((xtr, xva))
         ytr = np.concatenate((ytr, yva))
     else:
         Klmnn, Knn, outdim, maxiter = 3, 3, 300, 120
+        # 3, 3, 300, 120  # (found by K.W.)
+        # 14, 3, 34, 140  # (found after 12 runs with 5% training set)
+        # 13, 10, 30, 178  # (found after 12 runs with 5% training set and discrete domain)
+
+
     # loglevel: DEBUG=10, INFO=20
-    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save='lin_transf',
-                loglevel=10)
-    if load == 0:
+    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save='lin_transf', loglevel=10, load=load)
+    if load is None:
         # Train full model
         print('Training final model...\n')
         t1 = time()
         lmnn, loss, det = lmnn.fit(xtr, ytr)
         print('LMNN fit in {:.8f}s'.format(time()-t1))
-    else:
-        lmnn.load_stored(load)
 
     test_knn(xtr, ytr, xte, yte, k=min(Knn, lmnn.params['k']))
     test_knn(xtr, ytr, xte, yte, k=Knn, L=lmnn.L)
@@ -58,6 +60,6 @@ def main(autotune=True, load=0):
 
 
 if __name__ == '__main__':
-    main(False)
+    main(True)
 
 

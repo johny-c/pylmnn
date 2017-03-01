@@ -32,6 +32,7 @@ def findLMNNparams(xtr, ytr, xva, yva, max_trials=12):
     opt.minDim = min(xtr.shape[1], 2)
     opt.maxDim = xtr.shape[1]
 
+    bo_iter = 0
     def optimizeLMNN(hp):
         hp = hp[0]
         K = int(round(hp[0]))
@@ -39,6 +40,9 @@ def findLMNNparams(xtr, ytr, xva, yva, max_trials=12):
         outdim = int(np.ceil(hp[2]))
         maxiter = int(np.ceil(hp[3]))
 
+        nonlocal bo_iter
+        bo_iter += 1
+        print('Iteration {} of Bayesian Optimisation'.format(bo_iter))
         print('Trying K(lmnn)=%i K(knn)=%i outdim=%i maxiter=%i ...\n' % (K, knn, outdim, maxiter))
         lmnn_clf = LMNN(k=K, max_iter=maxiter, verbose=True, outdim=outdim)
         knn_clf  = KNeighborsClassifier(n_neighbors=knn)
@@ -55,6 +59,7 @@ def findLMNNparams(xtr, ytr, xva, yva, max_trials=12):
         return valerr
 
     f = lambda hp: optimizeLMNN(hp)
+    # Parameters are discrete but treating them as continuous yields better parameters
     domain = [{'name': 'Klmnn', 'type': 'continuous', 'domain': (opt.minK, opt.maxK)},
               {'name': 'knn', 'type': 'continuous', 'domain': (opt.minK, opt.maxK)},
               {'name': 'outdim', 'type': 'continuous', 'domain': (opt.minDim, opt.maxDim)},
