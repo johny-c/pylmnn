@@ -26,10 +26,10 @@ def main(autotune=True, load=None):
 
     if autotune:
         # Separate in training and validation set
-        xtr, xva, ytr, yva = train_test_split(xtr, ytr, train_size=0.1, stratify=ytr)
+        xtr, xva, ytr, yva = train_test_split(xtr, ytr, train_size=0.2, stratify=ytr)
 
         # LMNN hyper-parameter tuning
-        print('Searching for optimal LMNN params...\n')
+        print('Searching for optimal LMNN params for {} points...\n'.format(len(xtr)))
         t_lmnnParams = time()
         Klmnn, Knn, outdim, maxiter = findLMNNparams(xtr, ytr, xva, yva, max_trials=50)
         t_bo = time() - t_lmnnParams
@@ -39,8 +39,9 @@ def main(autotune=True, load=None):
         xtr = np.concatenate((xtr, xva))
         ytr = np.concatenate((ytr, yva))
     else:
-        Klmnn, Knn, outdim, maxiter = 3, 3, 300, 120
+        Klmnn, Knn, outdim, maxiter = 9, 5, 147, 167
         # 3, 3, 300, 120  # (found by K.W.)
+        # 9, 5, 147, 67  # (found after 50 runs with 20% training set)
         # 14, 3, 34, 140  # (found after 12 runs with 5% training set)
         # 13, 10, 30, 178  # (found after 12 runs with 5% training set and discrete domain)
 
