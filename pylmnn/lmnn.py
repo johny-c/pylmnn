@@ -1,11 +1,12 @@
 import numpy as np
 from numpy import linalg as LA
 from scipy import sparse, optimize
-from sklearn.metrics import pairwise as pw
+from sklearn.metrics.pairwise import euclidean_distances
+from sklearn.utils import gen_batches
 import logging, sys, os
 
 
-class LMNN:
+class LargeMarginNearestNeighbor:
     """
     Large Margin Nearest Neighbor metric learning.
 
@@ -17,8 +18,8 @@ class LMNN:
     Copyright (c) 2017, John Chiotellis
     Licensed under the GPLv3 license (see LICENSE.txt)
     """
-    def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=True, outdim=None,
-                 load=None, save=None, temp_dir='temp_res', loglevel=logging.INFO):
+    def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=True, dim_out=None,
+                 load=None, save=None, temp_dir='temp_res', log_level=logging.INFO):
         """
         Instantiate the LMNN classifier
         :param L:           dxD matrix, initial transformation, if None identity or pca will be used
@@ -29,24 +30,25 @@ class LMNN:
                             otherwise identity is used except if an L is given  (default: True)
         :param tol:         scalar, tolerance for the optimization  (default: 1e-5)
         :param verbose:     flag, output information during the optimization (default:True)
-        :param outdim:      flag, preferred dimensionality of the inputs after the
+        :param dim_out:      flag, preferred dimensionality of the inputs after the
                             transformation, if None it is inferred from use_pca and L (default:None)
         :param save:        string, if not None save the intermediate linear transformations in a
                             folder with this string as filename (default: None)
         :param load:        string, if not None load the intermediate linear transformations in a
                             folder with this string as filename (default: None)
-        :param loglevel:    logging level of verbosity for debugging purposes (default: INFO)
+        :param log_level:    logging level of verbosity for debugging purposes (default: INFO)
         """
-        self.params = dict(k=k, max_iter=max_iter, use_pca=use_pca, tol=tol, verbose=verbose, outdim=outdim)
+        self.params = dict(k=k, max_iter=max_iter, use_pca=use_pca, tol=tol,
+                           verbose=verbose, dim_out=dim_out)
         self.L = L
         self.targets = None
         self.dfG = None
         self.load = load
         self.save = save
-        self.tempdir = temp_dir
+        self.temp_dir = temp_dir
         self.iter = 0
-        self.loglevel = loglevel
-        logging.basicConfig(stream=sys.stdout, level=self.loglevel)
+        self.log_level = log_level
+        logging.basicConfig(stream=sys.stdout, level=self.log_level)
 
     def transform(self, X=None):
         """
@@ -73,7 +75,7 @@ class LMNN:
 
     def _init_transformer(self):
         if self.load is not None:
-            self.L = np.load(os.path.join(self.tempdir, self.load))
+            self.L = np.load(os.path.join(self.temp_dir, self.load))
             return
 
         if self.params['use_pca']:
@@ -84,12 +86,12 @@ class LMNN:
         else:
             self.L = np.eye(self.X.shape[1])
 
-        outdim = self.params['outdim']
+        outdim = self.params['dim_out']
         if outdim is not None:
             D = self.X.shape[1]
             if outdim > self.L.shape[0]:
-                print('outdim({}) cannot be larger than the inputs dimensionality ({}), '
-                      'setting outdim to {}!'.format(outdim, D, D))
+                print('dim_out({}) cannot be larger than the inputs dimensionality ({}), '
+                      'setting dim_out to {}!'.format(outdim, D, D))
                 outdim = D
             self.L = self.L[:outdim]
 
@@ -132,9 +134,9 @@ class LMNN:
         logging.info('Now optimizing...')
         self.iter = 0
         if self.save is not None:
-            os.mkdir(self.tempdir) if not os.path.exists(self.tempdir) else None
+            os.mkdir(self.temp_dir) if not os.path.exists(self.temp_dir) else None
             filename = self.save + '_' + str(self.iter) + '.npy'
-            np.save(os.path.join(self.tempdir, filename), self.L)
+            np.save(os.path.join(self.temp_dir, filename), self.L)
 
         L, loss, det = optimize.fmin_l_bfgs_b(func=lmfun, x0=self.L, bounds=None, m=100, pgtol=tol,
                                               maxfun=500*max_iter, maxiter=max_iter, disp=disp)
@@ -156,7 +158,7 @@ class LMNN:
         logging.info('Iteration {}'.format(self.iter))
         if self.save is not None:
             filename = self.save + '_' + str(self.iter) + '.npy'
-            np.save(os.path.join(self.tempdir, filename), self.L)
+            np.save(os.path.join(self.temp_dir, filename), self.L)
         Lx = self.transform()
 
         # Compute distances to target neighbors under L (plus margin)
@@ -204,7 +206,7 @@ class LMNN:
         target_neighbors = np.empty((self.X.shape[0], k), dtype=int)
         for label in self.labels:
             ind, = np.where(np.equal(self.label_idx, label))
-            dist = pw.euclidean_distances(self.X[ind], squared=True)
+            dist = euclidean_distances(self.X[ind], squared=True)
             np.fill_diagonal(dist, np.inf)
             neigh_ind = np.argpartition(dist, k-1, axis=1)
             neigh_ind = neigh_ind[:, :k]
@@ -234,7 +236,7 @@ class LMNN:
             # idx_in = np.random.permutation(idx_in)
             # idx_out = np.random.permutation(idx_out)
 
-            # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory (1 MB)
+            # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
             logging.debug('Impostor classes {} to class {}..'.
                           format(self.labels[self.labels > label], label))
             ii, jj, dd = self._find_imps(Lx[idx_out], Lx[idx_in],
@@ -253,31 +255,28 @@ class LMNN:
         return imp1, imp2, dist
 
     @staticmethod
-    def _find_imps(x1, x2, t1, t2, mem_budget=1e7):
+    def _find_imps(x1, x2, t1, t2, batch_size=500):
         """
         Find impostor pairs in a minibatch fashion to avoid large memory usage
         :param x1: nx1 vector of transformed inputs
         :param x2: mx1 vector of transformed inputs, where always m < n
         :param t1: nx1 vector of distances to margins
         :param t2: mx1 vector of distances to margins
-        :param mem_budget: memory budget (in bytes) for intermediate distance computations (
-        default: 1e7 = 10 MB)
+        :param batch_size: size of each chunk of x1 to compute distances to
         :return: px1, px1, impostor pairs vectors
         """
         n, m = len(t1), len(t2)
-        minibatch_size = int(mem_budget / (8 * m))
         imp1, imp2, dist = [], [], []
-        for i in range(0, n, minibatch_size):
-            bb = min(minibatch_size, n - i)
-            dist_out_in = pw.euclidean_distances(x1[i:i + bb], x2, squared=True)
-            i1, j1 = np.where(dist_out_in < t1[i:i + bb, None])
+        for chunk in gen_batches(n, batch_size):
+            dist_out_in = euclidean_distances(x1[chunk], x2, squared=True)
+            i1, j1 = np.where(dist_out_in < t1[chunk, None])
             i2, j2 = np.where(dist_out_in < t2[None, :])
             if len(i1):
-                imp1.extend(i1 + i)
+                imp1.extend(i1 + chunk.start)
                 imp2.extend(j1)
                 dist.extend(dist_out_in[i1, j1])
             if len(i2):
-                imp1.extend(i2 + i)
+                imp1.extend(i2 + chunk.start)
                 imp2.extend(j2)
                 dist.extend(dist_out_in[i2, j2])
 
@@ -307,16 +306,12 @@ class LMNN:
         return sodw
 
     @staticmethod
-    def _cdist(x, a, b, mem_budget=1e7):
+    def _cdist(X, a, b, batch_size=500):
         """ Equivalent to  np.sum(np.square(x[a] - x[b]), axis=1) """
         n = len(a)
-        d = x.shape[1]
-        minibatch_size = int(mem_budget / (8 * d))
         res = np.zeros(n)
-        for i in range(0, n, minibatch_size):
-            bb = min(minibatch_size, n - i)
-            # ind = k:min(k + minibatch_size - 1, n)
-            res[i:i+bb] = np.sum(np.square(x[a[i:i+bb]] - x[b[i:i+bb]]), axis=1)
+        for chunk in gen_batches(n, batch_size):
+            res[chunk] = np.sum(np.square(X[a[chunk]] - X[b[chunk]]), axis=1)
         return res
 
     @staticmethod
@@ -336,5 +331,5 @@ class LMNN:
         :return:    the saved L
         """
         filename = self.save + '_' + str(iteration) + '.npy'
-        self.L = np.load(os.path.join(self.tempdir, filename))
+        self.L = np.load(os.path.join(self.temp_dir, filename))
         return self.L

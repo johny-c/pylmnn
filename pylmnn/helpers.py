@@ -23,7 +23,7 @@ def clean_data(x, var_ratio=1):
         var_exp = np.cumsum(evals)
         var_exp = var_exp / var_exp[-1]
         outdim = np.argmax(np.greater_equal(var_exp, var_ratio))
-        # Set first outdim eigenvectors as rows of L
+        # Set first dim_out eigenvectors as rows of L
         L = evecs.T[:outdim]
     Lx = x.dot(L.T)
     return Lx
@@ -33,13 +33,13 @@ def test_knn(xtr, ytr, xte, yte, k, L=None):
     knn_clf = KNeighborsClassifier(n_neighbors=k)
     if L is None:
         knn_clf.fit(xtr, ytr)
-        Y_pred = knn_clf.predict(xte)
-        acc = np.mean(np.equal(Y_pred, yte))
+        y_pred = knn_clf.predict(xte)
+        acc = np.mean(np.equal(y_pred, yte))
         print('kNN accuracy on test set of {} points is {:.4f}'.format(xte.shape[0], acc))
     else:
         knn_clf.fit(xtr.dot(L.T), ytr)
-        Y_pred = knn_clf.predict(xte.dot(L.T))
-        acc = np.mean(np.equal(Y_pred, yte))
+        y_pred = knn_clf.predict(xte.dot(L.T))
+        acc = np.mean(np.equal(y_pred, yte))
         print('LMNN accuracy on test set of {} points is {:.4f}'.format(xte.shape[0], acc))
     return acc
 

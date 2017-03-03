@@ -1,8 +1,8 @@
 from time import time
 import numpy as np
 
-from pylmnn.bayesopt import findLMNNparams
-from pylmnn.lmnn import LMNN
+from pylmnn.bayesopt import find_hyper_params
+from pylmnn.lmnn import LargeMarginNearestNeighbor
 from pylmnn.helpers import test_knn, plot_ba
 
 import sklearn.datasets as skd
@@ -40,7 +40,7 @@ def main(autotune=True, load=0):
         # LMNN hyper-parameter tuning
         print('Searching for optimal LMNN params...\n')
         t_lmnnParams = time()
-        Klmnn, Knn, outdim, maxiter = findLMNNparams(xtr, ytr, xva, yva)
+        Klmnn, Knn, outdim, maxiter = find_hyper_params(xtr, ytr, xva, yva)
         t_bo = time() - t_lmnnParams
         print('Found optimal LMNN params for %d points in %s\n' % (len(ytr), t_bo))
 
@@ -50,7 +50,7 @@ def main(autotune=True, load=0):
     else:
         Klmnn, Knn, outdim, maxiter = 15, 3, 28, 25
 
-    lmnn = LMNN(verbose=True, k=Klmnn, max_iter=maxiter, outdim=outdim, save=None, loglevel=10)
+    lmnn = LargeMarginNearestNeighbor(verbose=True, k=Klmnn, max_iter=maxiter, dim_out=outdim, save=None, log_level=10)
     if load == 0:
         # Train full model
         print('Training final model...\n')
