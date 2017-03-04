@@ -249,9 +249,18 @@ class LargeMarginNearestNeighbor:
         # impostors = sparse.coo_matrix((np.ones(len(imp1)), (imp1, imp2)), (N, N), dtype=int)
         # imp1, imp2 = impostors.nonzero()
         idx = self._unique_pairs(imp1, imp2, N)
-        imp1 = np.asarray(imp1)[idx]
-        imp2 = np.asarray(imp2)[idx]
-        dist = np.asarray(dist)[idx]
+
+        # subsample constraints if they are too many
+        max_constr = int(1e6)
+        if len(idx) > max_constr:
+            idx = np.random.choice(len(idx), max_constr, replace=False)
+
+        imp1 = np.array([imp1[i] for i in idx])
+        imp2 = np.array([imp2[i] for i in idx])
+        dist = np.array([dist[i] for i in idx])
+        # imp1 = np.asarray(imp1)[idx]
+        # imp2 = np.asarray(imp2)[idx]
+        # dist = np.asarray(dist)[idx]
         return imp1, imp2, dist
 
     @staticmethod
