@@ -12,7 +12,7 @@ from pylmnn.helpers import test_knn, plot_ba, clean_data
 from data_fetch import fetch_load_letters, fetch_load_isolet, load_shrec14
 
 
-def main(demo='isolet'):
+def main(demo='mnist'):
 
     cfg = ConfigParser()
     cfg.read(demo + '.cfg')
@@ -25,7 +25,8 @@ def main(demo='isolet'):
             data_set = skd.fetch_mldata(data_set_name)
         X, y = data_set.data, data_set.target
         if data_set_name == 'MNIST original':
-            X = X / 255.
+            if cfg['pre_process'].getboolean('normalize'):
+                X = X / 255.
     else:
         if data_set_name == 'LETTERS':
             X, y = fetch_load_letters()
@@ -40,9 +41,7 @@ def main(demo='isolet'):
     # Separate in training and testing set
     if data_set_name == 'MNIST original':
         x_tr, x_te, y_tr, y_te = X[:60000], X[60000:], y[:60000], y[60000:]
-    elif data_set_name == 'ISOLET':
-        pass
-    else:
+    elif data_set_name != 'ISOLET':
         test_size = cfg['train_test'].getfloat('test_size')
         x_tr, x_te, y_tr, y_te = train_test_split(X, y, test_size=test_size, stratify=y)
 
