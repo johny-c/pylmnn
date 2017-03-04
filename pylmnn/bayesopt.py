@@ -4,7 +4,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from .lmnn import LargeMarginNearestNeighbor
 
 
-def find_hyper_params(xtr, ytr, xva, yva, max_trials=12):
+def find_hyper_params(xtr, ytr, xva, yva, params, max_trials=12):
     """
     Find optimal hyperparameters using Bayesian Optimization
     :param xtr: NxD training inputs
@@ -44,9 +44,9 @@ def find_hyper_params(xtr, ytr, xva, yva, max_trials=12):
         nonlocal bo_iter
         bo_iter += 1
         print('Iteration {} of Bayesian Optimisation'.format(bo_iter))
-        print('Trying K(lmnn)=%i K(knn)=%i dim_out=%i maxiter=%i ...\n'.
+        print('Trying K(lmnn)={} K(knn)={} dim_out={} max_iter={} ...\n'.
               format(k_tr, k_te, dim_out, max_iter))
-        lmnn_clf = LargeMarginNearestNeighbor(k=k_tr, max_iter=max_iter, verbose=True, dim_out=dim_out)
+        lmnn_clf = LargeMarginNearestNeighbor(k=k_tr, max_iter=max_iter, dim_out=dim_out, **params)
         knn_clf = KNeighborsClassifier(n_neighbors=k_te)
 
         lmnn_clf, _, _ = lmnn_clf.fit(xtr, ytr)
@@ -75,6 +75,6 @@ def find_hyper_params(xtr, ytr, xva, yva, max_trials=12):
     knn = int(round(hp[1]))
     outdim = int(np.ceil(hp[2]))
     maxiter = int(np.ceil(hp[3]))
-    print('Best parameters: K(lmnn)={} K(knn)={} dim_out={} maxiter={}\n'.format(Klmnn, knn,
-                                                                                outdim, maxiter))
+    print('Best parameters: K(lmnn)={} K(knn)={} dim_out={} max_iter={}\n'.
+          format(Klmnn, knn, outdim, maxiter))
     return Klmnn, knn, outdim, maxiter

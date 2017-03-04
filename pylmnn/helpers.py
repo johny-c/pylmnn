@@ -5,7 +5,7 @@ from sklearn import manifold
 from sklearn.neighbors import KNeighborsClassifier
 
 
-def clean_data(x, var_ratio=1):
+def pca_transform(x, var_ratio=1):
     """
     Apply PCA and get the first k dimensions so that the variance fraction given is explained
     :param x:       NxD inputs
@@ -35,12 +35,12 @@ def test_knn(xtr, ytr, xte, yte, k, L=None):
         knn_clf.fit(xtr, ytr)
         y_pred = knn_clf.predict(xte)
         acc = np.mean(np.equal(y_pred, yte))
-        print('kNN accuracy on test set of {} points is {:.4f}'.format(xte.shape[0], acc))
+        print('kNN accuracy on test set of {} points: {:.4f}'.format(xte.shape[0], acc))
     else:
         knn_clf.fit(xtr.dot(L.T), ytr)
         y_pred = knn_clf.predict(xte.dot(L.T))
         acc = np.mean(np.equal(y_pred, yte))
-        print('LMNN accuracy on test set of {} points is {:.4f}'.format(xte.shape[0], acc))
+        print('LMNN accuracy on test set of {} points: {:.4f}\n'.format(xte.shape[0], acc))
     return acc
 
 

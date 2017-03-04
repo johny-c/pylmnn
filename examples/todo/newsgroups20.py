@@ -11,11 +11,13 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.model_selection import train_test_split
 from scipy import sparse
 
+
 # Out of memory
 def main(autotune=True, load=0):
     print('Loading dataset...')
-    news_train = skd.fetch_20newsgroups_vectorized(subset='train', remove=('headers', 'footers', 'quotes'))
-    news_test  = skd.fetch_20newsgroups_vectorized(subset='test', remove=('headers', 'footers', 'quotes'))
+    filters = ('headers', 'footers', 'quotes')
+    news_train = skd.fetch_20newsgroups_vectorized(subset='train', remove=filters)
+    news_test = skd.fetch_20newsgroups_vectorized(subset='test', remove=filters)
 
     X = sparse.vstack((news_train.data, news_test.data))
     # vectorizer = TfidfVectorizer()
@@ -40,7 +42,8 @@ def main(autotune=True, load=0):
         # LMNN hyper-parameter tuning
         print('Searching for optimal LMNN params...\n')
         t_lmnnParams = time()
-        Klmnn, Knn, outdim, maxiter = find_hyper_params(xtr, ytr, xva, yva)
+        params = {'use_pca': False}
+        Klmnn, Knn, outdim, maxiter = find_hyper_params(xtr, ytr, xva, yva, params)
         t_bo = time() - t_lmnnParams
         print('Found optimal LMNN params for %d points in %s\n' % (len(ytr), t_bo))
 
@@ -48,9 +51,10 @@ def main(autotune=True, load=0):
         xtr = np.concatenate((xtr, xva))
         ytr = np.concatenate((ytr, yva))
     else:
-        Klmnn, Knn, outdim, maxiter = 15, 3, 28, 25
+        Klmnn, Knn, outdim, maxiter = 15, 3, 28, 25  # 15, 14, 156, 153
 
-    lmnn = LargeMarginNearestNeighbor(verbose=True, k=Klmnn, max_iter=maxiter, dim_out=outdim, save=None, log_level=10)
+    lmnn = LargeMarginNearestNeighbor(verbose=True, k=Klmnn, max_iter=maxiter, dim_out=outdim,
+                                      save=None, log_level=10)
     if load == 0:
         # Train full model
         print('Training final model...\n')
@@ -66,4 +70,4 @@ def main(autotune=True, load=0):
 
 
 if __name__ == '__main__':
-    main(False)
+    main(True)

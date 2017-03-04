@@ -18,8 +18,9 @@ class LargeMarginNearestNeighbor:
     Copyright (c) 2017, John Chiotellis
     Licensed under the GPLv3 license (see LICENSE.txt)
     """
-    def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=True, dim_out=None,
-                 load=None, save=None, temp_dir='temp_res', log_level=logging.INFO):
+    def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=False,
+                 dim_out=None, max_constr=int(1e7), load=None, save=None, temp_dir='temp_res',
+                 log_level=logging.INFO):
         """
         Instantiate the LMNN classifier
         :param L:           dxD matrix, initial transformation, if None identity or pca will be used
@@ -29,26 +30,33 @@ class LargeMarginNearestNeighbor:
         :param use_pca:     flag, if True use pca to initialize the transformation,
                             otherwise identity is used except if an L is given  (default: True)
         :param tol:         scalar, tolerance for the optimization  (default: 1e-5)
-        :param verbose:     flag, output information during the optimization (default:True)
+        :param verbose:     flag, output information from the L-BFGS optimizer (default:False)
         :param dim_out:      flag, preferred dimensionality of the inputs after the
                             transformation, if None it is inferred from use_pca and L (default:None)
+        :param max_constr:  int (optional), maximum number of constraints to enforce per iteration
         :param save:        string, if not None save the intermediate linear transformations in a
                             folder with this string as filename (default: None)
         :param load:        string, if not None load the intermediate linear transformations in a
                             folder with this string as filename (default: None)
-        :param log_level:    logging level of verbosity for debugging purposes (default: INFO)
+        :param log_level:    self.logger level of verbosity for debugging purposes (default: INFO)
         """
         self.params = dict(k=k, max_iter=max_iter, use_pca=use_pca, tol=tol,
                            verbose=verbose, dim_out=dim_out)
         self.L = L
         self.targets = None
         self.dfG = None
+        self.max_constr = max_constr
         self.load = load
         self.save = save
         self.temp_dir = temp_dir
-        self.iter = 0
-        self.log_level = log_level
-        logging.basicConfig(stream=sys.stdout, level=self.log_level)
+        self.n_funcalls = 0
+
+        self.logger = logging.getLogger(__name__)
+        self.logger.setLevel(log_level)
+        stream_handler = logging.StreamHandler(stream=sys.stdout)
+        formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        stream_handler.setFormatter(formatter)
+        self.logger.addHandler(stream_handler)
 
     def transform(self, X=None):
         """
@@ -112,16 +120,16 @@ class LargeMarginNearestNeighbor:
         k = self.params['k']
         print('Parameters:\n')
         [print('{:10}: {}'.format(k, v)) for k, v in self.params.items()]
-
+        print()
         # Initialize L
         self._init_transformer()
 
         # Find target neighbors (fixed)
-        logging.info('Finding target neighbors...')
+        self.logger.info('Finding target neighbors...')
         self.targets = self._select_targets()
 
         # Compute gradient component of target neighbors (constant)
-        logging.info('Computing gradient component due to target neighbors...')
+        self.logger.info('Computing gradient component due to target neighbors...')
         N, D = X.shape
         rows = np.repeat(np.arange(N), k)  # 0 0 0 1 1 1 2 2 2 ... (n-1) (n-1) (n-1) with k=3
         cols = self.targets.flatten()
@@ -131,19 +139,20 @@ class LargeMarginNearestNeighbor:
         # Define optimization problem
         lmfun = lambda x: self._loss_grad(x)
         disp = 1 if verbose else None
-        logging.info('Now optimizing...')
-        self.iter = 0
+        self.logger.info('Now optimizing...')
+        self.n_funcalls = 0
         if self.save is not None:
             os.mkdir(self.temp_dir) if not os.path.exists(self.temp_dir) else None
-            filename = self.save + '_' + str(self.iter) + '.npy'
+            filename = self.save + '_' + str(self.n_funcalls) + '.npy'
             np.save(os.path.join(self.temp_dir, filename), self.L)
 
         L, loss, det = optimize.fmin_l_bfgs_b(func=lmfun, x0=self.L, bounds=None, m=100, pgtol=tol,
                                               maxfun=500*max_iter, maxiter=max_iter, disp=disp)
-
-        print('Finished!')
+        self.details = det
+        self.details['loss'] = loss
         self.L = L.reshape(L.size // D, D)
-        return self, loss, det
+
+        return self
 
     def _loss_grad(self, L):
         """
@@ -154,27 +163,25 @@ class LargeMarginNearestNeighbor:
         N, D = self.X.shape
         _, k = self.targets.shape
         self.L = L.reshape(L.size // D, D)
-        self.iter += 1
-        logging.info('Iteration {}'.format(self.iter))
+        self.n_funcalls += 1
+        self.logger.info('Function call {}'.format(self.n_funcalls))
         if self.save is not None:
-            filename = self.save + '_' + str(self.iter) + '.npy'
+            filename = self.save + '_' + str(self.n_funcalls) + '.npy'
             np.save(os.path.join(self.temp_dir, filename), self.L)
         Lx = self.transform()
 
         # Compute distances to target neighbors under L (plus margin)
-        logging.debug('Computing distances to target neighbors under new L...')
+        self.logger.debug('Computing distances to target neighbors under new L...')
         dist_tn = np.zeros((N, k))
         for j in range(k):
             dist_tn[:, j] = np.sum(np.square(Lx - Lx[self.targets[:, j]]), axis=1) + 1
 
         # Compute distances to impostors under L
-        logging.debug('Setting margin radii...')
+        self.logger.debug('Setting margin radii...')
         margin_radii = np.add(dist_tn[:, -1], 2)
-        imp1, imp2, dist_imp = self._find_impostors(Lx, margin_radii)
-        # logging.debug('Computing distances to impostors under new L...')
-        # dist_imp = self._cdist(Lx, imp1, imp2)
+        imp1, imp2, dist_imp = self._find_impostors_sp(Lx, margin_radii)
 
-        logging.debug('Computing loss and gradient under new L...')
+        self.logger.debug('Computing loss and gradient under new L...')
         loss = 0
         A0 = sparse.csr_matrix((N, N))
         for nnid in reversed(range(k)):
@@ -194,7 +201,7 @@ class LargeMarginNearestNeighbor:
         df = self.L @ (self.dfG + sum_outer_prods)
         df *= 2
         loss = loss + (self.dfG * (self.L.T @ self.L)).sum()
-        logging.debug('Loss and gradient computed!\n')
+        self.logger.debug('Loss and gradient computed!\n')
         return loss, df.flatten()
 
     def _select_targets(self):
@@ -228,7 +235,7 @@ class LargeMarginNearestNeighbor:
 
         # Initialize impostors vectors
         imp1, imp2, dist = [], [], []
-        logging.debug('Now computing impostor vectors...')
+        self.logger.debug('Now computing impostor vectors...')
         for label in self.labels[:-1]:
             idx_in, = np.where(np.equal(self.label_idx, label))
             idx_out, = np.where(np.greater(self.label_idx, label))
@@ -237,10 +244,10 @@ class LargeMarginNearestNeighbor:
             # idx_out = np.random.permutation(idx_out)
 
             # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
-            logging.debug('Impostor classes {} to class {}..'.
+            self.logger.debug('Impostor classes {} to class {}..'.
                           format(self.labels[self.labels > label], label))
-            ii, jj, dd = self._find_imps(Lx[idx_out], Lx[idx_in],
-                                         margin_radii[idx_out], margin_radii[idx_in])
+            ii, jj, dd = self._find_impostors_batch(Lx[idx_out], Lx[idx_in], margin_radii[idx_out],
+                                                    margin_radii[idx_in], return_dist=True)
             if len(ii):
                 imp1.extend(idx_out[ii])
                 imp2.extend(idx_in[jj])
@@ -251,20 +258,54 @@ class LargeMarginNearestNeighbor:
         idx = self._unique_pairs(imp1, imp2, N)
 
         # subsample constraints if they are too many
-        max_constr = int(1e6)
-        if len(idx) > max_constr:
-            idx = np.random.choice(len(idx), max_constr, replace=False)
+        if len(idx) > self.max_constr:
+            idx = np.random.choice(len(idx), self.max_constr, replace=False)
 
-        imp1 = np.array([imp1[i] for i in idx])
-        imp2 = np.array([imp2[i] for i in idx])
-        dist = np.array([dist[i] for i in idx])
-        # imp1 = np.asarray(imp1)[idx]
-        # imp2 = np.asarray(imp2)[idx]
-        # dist = np.asarray(dist)[idx]
+        imp1 = np.asarray(imp1)[idx]
+        imp2 = np.asarray(imp2)[idx]
+        dist = np.asarray(dist)[idx]
+        return imp1, imp2, dist
+
+    def _find_impostors_sp(self, Lx, margin_radii):
+        """
+        Compute all impostor pairs exactly
+        :param Lx:              Nxd transformed inputs matrix
+        :param margin_radii:    Nx1 vector of distances to the farthest target neighbors + margin
+        :return: Px1 vectors imp1 and imp2, samples that violate the margin of other sample(s)
+        """
+        N = self.X.shape[0]
+
+        # Initialize impostors matrix
+        impostors_sp = sparse.csr_matrix((N, N), dtype=np.int8)
+        self.logger.debug('Now computing impostor vectors...')
+        for label in self.labels[:-1]:
+            imp1, imp2 = [], []
+            idx_in, = np.where(np.equal(self.label_idx, label))
+            idx_out, = np.where(np.greater(self.label_idx, label))
+
+            # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
+            self.logger.debug('Impostor classes {} to class {}..'.
+                          format(self.labels[self.labels > label], label))
+            ii, jj = self._find_impostors_batch(Lx[idx_out], Lx[idx_in], margin_radii[idx_out],
+                                                margin_radii[idx_in])
+            if len(ii):
+                imp1.extend(idx_out[ii])
+                imp2.extend(idx_in[jj])
+                new_imps = sparse.csr_matrix(([1]*len(imp1), (imp1, imp2)), shape=(N, N), dtype=np.int8)
+                impostors_sp = impostors_sp + new_imps
+
+        imp1, imp2 = impostors_sp.nonzero()
+        # subsample constraints if they are too many
+        if impostors_sp.nnz > self.max_constr:
+            idx = np.random.choice(impostors_sp.nnz, self.max_constr, replace=False)
+            imp1, imp2 = imp1[idx], imp2[idx]
+
+        # self.logger.debug('Computing distances to impostors under new L...')
+        dist = self._cdist(Lx, imp1, imp2)
         return imp1, imp2, dist
 
     @staticmethod
-    def _find_imps(x1, x2, t1, t2, batch_size=500):
+    def _find_impostors_batch(x1, x2, t1, t2, return_dist=False, batch_size=500):
         """
         Find impostor pairs in a minibatch fashion to avoid large memory usage
         :param x1: nx1 vector of transformed inputs
@@ -283,13 +324,18 @@ class LargeMarginNearestNeighbor:
             if len(i1):
                 imp1.extend(i1 + chunk.start)
                 imp2.extend(j1)
-                dist.extend(dist_out_in[i1, j1])
+                if return_dist:
+                    dist.extend(dist_out_in[i1, j1])
             if len(i2):
                 imp1.extend(i2 + chunk.start)
                 imp2.extend(j2)
-                dist.extend(dist_out_in[i2, j2])
+                if return_dist:
+                    dist.extend(dist_out_in[i2, j2])
 
-        return imp1, imp2, dist
+        if return_dist:
+            return imp1, imp2, dist
+        else:
+            return imp1, imp2
 
     @staticmethod
     def _SODWsp(x, weights, check=False):
@@ -323,14 +369,14 @@ class LargeMarginNearestNeighbor:
             res[chunk] = np.sum(np.square(X[a[chunk]] - X[b[chunk]]), axis=1)
         return res
 
-    @staticmethod
-    def _unique_pairs(i, j, n):
+    # @staticmethod
+    def _unique_pairs(self, i, j, n):
         # First generate a hash array
         h = np.array([a * n + b for a, b in zip(i, j)])
 
         # Get the indices of the unique elements in the hash array
         _, idx = np.unique(h, return_index=True)
-        logging.debug('Found {} unique pairs out of {}.'.format(len(idx), len(h)))
+        self.logger.debug('Found {} unique pairs out of {}.'.format(len(idx), len(h)))
         return idx
 
     def load_stored(self, iteration):

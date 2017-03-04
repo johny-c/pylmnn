@@ -1,5 +1,6 @@
 import numpy as np
 from time import time
+import logging
 import sklearn.datasets as skd
 import sklearn.preprocessing as prep
 from sklearn.model_selection import train_test_split
@@ -7,12 +8,12 @@ from configparser import ConfigParser
 
 from pylmnn.bayesopt import find_hyper_params
 from pylmnn.lmnn import LargeMarginNearestNeighbor
-from pylmnn.helpers import test_knn, plot_ba, clean_data
+from pylmnn.helpers import test_knn, plot_ba, pca_transform
 
 from data_fetch import fetch_load_letters, fetch_load_isolet, load_shrec14
 
 
-def main(demo='mnist'):
+def main(demo='shrec14'):
 
     cfg = ConfigParser()
     cfg.read(demo + '.cfg')
@@ -49,7 +50,7 @@ def main(demo='mnist'):
 
     if cfg['pre_process'].getboolean('pca'):
         print('Cleaning data set...')
-        X = clean_data(np.concatenate((x_tr, x_te)), var_ratio=0.95)
+        X = pca_transform(np.concatenate((x_tr, x_te)), var_ratio=0.95)
         x_tr, x_te = X[:x_tr.shape[0]], X[x_tr.shape[0]:]
 
     bo = cfg['bayes_opt']
@@ -61,7 +62,9 @@ def main(demo='mnist'):
         # LMNN hyper-parameter tuning
         print('Searching for optimal LMNN hyper parameters...\n')
         t_bo = time()
-        k_tr, k_te, dim_out, max_iter = find_hyper_params(x_tr, y_tr, xva, yva, bo['max_trials'])
+        params = {'log_level': logging.DEBUG}
+        k_tr, k_te, dim_out, max_iter = find_hyper_params(x_tr, y_tr, xva, yva,
+                                                          params, bo['max_trials'])
         print('Found optimal LMNN hyper parameters for %d points in %s\n' % (len(y_tr), time() - t_bo))
 
         # Reconstruct full training set
@@ -74,13 +77,20 @@ def main(demo='mnist'):
         dim_out = hyper_params.getint('dim_out')
         max_iter = hyper_params.getint('max_iter')
 
-    clf = LargeMarginNearestNeighbor(verbose=True, k=k_tr, max_iter=max_iter, dim_out=dim_out)
+    clf = LargeMarginNearestNeighbor(verbose=False, k=k_tr, max_iter=max_iter, dim_out=dim_out,
+                                     log_level=logging.INFO)
 
     # Train full model
     t_train = time()
     print('Training final model...\n')
-    clf, loss, det = clf.fit(x_tr, y_tr)
-    print('LMNN trained in {:.8f}s'.format(time()-t_train))
+    clf = clf.fit(x_tr, y_tr)
+
+    t_train = time() - t_train
+    print('\nStatistics:\n{}\nLMNN trained in: {:.4f} s'.format('-'*50, t_train))
+    print('Number of iterations: {}'.format(clf.details['nit']))
+    print('Number of function calls: {}'.format(clf.details['funcalls']))
+    print('Average time / function call: {:.4f} s'.format(t_train / clf.details['funcalls']))
+    print('Training loss: {}'.format(clf.details['loss']))
 
     test_knn(x_tr, y_tr, x_te, y_te, k=min(k_te, clf.params['k']))
     test_knn(x_tr, y_tr, x_te, y_te, k=k_te, L=clf.L)
