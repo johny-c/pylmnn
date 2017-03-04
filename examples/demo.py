@@ -1,8 +1,6 @@
 import numpy as np
 from time import time
 import logging
-import sklearn.datasets as skd
-import sklearn.preprocessing as prep
 from sklearn.model_selection import train_test_split
 from configparser import ConfigParser
 
@@ -10,41 +8,15 @@ from pylmnn.bayesopt import find_hyper_params
 from pylmnn.lmnn import LargeMarginNearestNeighbor
 from pylmnn.helpers import test_knn, plot_ba, pca_transform
 
-from data_fetch import fetch_load_letters, fetch_load_isolet, load_shrec14
+from data_fetch import fetch_from_config
 
 
-def main(demo='shrec14'):
+def main(demo='mnist'):
 
     cfg = ConfigParser()
     cfg.read(demo + '.cfg')
 
-    data_set_name = cfg['fetch']['name']
-    if cfg['fetch'].getboolean('sklearn'):
-        if data_set_name == 'OLIVETTI':
-            data_set = skd.fetch_olivetti_faces(shuffle=True)
-        else:
-            data_set = skd.fetch_mldata(data_set_name)
-        X, y = data_set.data, data_set.target
-        if data_set_name == 'MNIST original':
-            if cfg['pre_process'].getboolean('normalize'):
-                X = X / 255.
-    else:
-        if data_set_name == 'LETTERS':
-            X, y = fetch_load_letters()
-        elif data_set_name == 'ISOLET':
-            x_tr, x_te, y_tr, y_te = fetch_load_isolet()
-        elif data_set_name == 'SHREC14':
-            X, y = load_shrec14(real=cfg['fetch']['real'], desc=cfg['fetch']['desc'])
-            X = prep.normalize(X, norm=cfg['pre_process']['norm'])
-        else:
-            raise NameError('No data set {} found!'.format(data_set_name))
-
-    # Separate in training and testing set
-    if data_set_name == 'MNIST original':
-        x_tr, x_te, y_tr, y_te = X[:60000], X[60000:], y[:60000], y[60000:]
-    elif data_set_name != 'ISOLET':
-        test_size = cfg['train_test'].getfloat('test_size')
-        x_tr, x_te, y_tr, y_te = train_test_split(X, y, test_size=test_size, stratify=y)
+    x_tr, x_te, y_tr, y_te = fetch_from_config(cfg)
 
     print('{} features of dimension {}'.format(len(y_tr) + len(y_te), x_tr.shape[1]))
 
@@ -55,11 +27,11 @@ def main(demo='shrec14'):
 
     bo = cfg['bayes_opt']
     if bo.getboolean('perform'):
-        # Separate in training and validation set
+        # Separate training and validation set
         test_size = bo.getfloat('test_size')
         x_tr, xva, y_tr, yva = train_test_split(x_tr, y_tr, test_size=test_size, stratify=y_tr)
 
-        # LMNN hyper-parameter tuning
+        # Hyper-parameter tuning
         print('Searching for optimal LMNN hyper parameters...\n')
         t_bo = time()
         params = {'log_level': logging.DEBUG}
@@ -77,8 +49,7 @@ def main(demo='shrec14'):
         dim_out = hyper_params.getint('dim_out')
         max_iter = hyper_params.getint('max_iter')
 
-    clf = LargeMarginNearestNeighbor(verbose=False, k=k_tr, max_iter=max_iter, dim_out=dim_out,
-                                     log_level=logging.INFO)
+    clf = LargeMarginNearestNeighbor(k=k_tr, max_iter=max_iter, dim_out=dim_out)
 
     # Train full model
     t_train = time()

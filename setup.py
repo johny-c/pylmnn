@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     setup(
         name='PyLMNN',
-        version='0.2.0',
+        version='1.0.0',
         description='Large Margin Nearest Neighbor implementation in python',
         long_description=long_description,
         url='https://github.com/johny-c/pylmnn.git',

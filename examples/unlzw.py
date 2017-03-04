@@ -138,7 +138,7 @@ def unlzw(data):
             mark = nxt
 
             # Go back to nine bits per symbol
-            bits = 9  # initialize bits and mask
+            bits = 9  # fetch_from_config bits and mask
             mask = 0x1ff
             end = 255  # empty table
             continue  # get next code
