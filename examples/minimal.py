@@ -11,7 +11,7 @@ X, y = dataset.data, dataset.target
 # Split in training and testing set
 x_tr, x_te, y_tr, y_te = train_test_split(X, y, test_size=0.7, stratify=y, random_state=42)
 
-# Set up the hyper parameters
+# Set up the hyperparameters
 k_tr, k_te, dim_out, max_iter = 3, 1, X.shape[1], 180
 
 # Instantiate the classifier

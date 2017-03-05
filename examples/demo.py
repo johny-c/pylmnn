@@ -4,7 +4,7 @@ import logging
 from sklearn.model_selection import train_test_split
 from configparser import ConfigParser
 
-from pylmnn.bayesopt import find_hyper_params
+from pylmnn.bayesopt import find_hyperparams
 from pylmnn.lmnn import LargeMarginNearestNeighbor
 from pylmnn.helpers import test_knn, plot_ba, pca_transform
 
@@ -35,8 +35,8 @@ def main(demo='shrec14'):
         print('Searching for optimal LMNN hyper parameters...\n')
         t_bo = time()
         params = {'log_level': logging.DEBUG}
-        k_tr, k_te, dim_out, max_iter = find_hyper_params(x_tr, y_tr, xva, yva,
-                                                          params, bo['max_trials'])
+        k_tr, k_te, dim_out, max_iter = find_hyperparams(x_tr, y_tr, xva, yva,
+                                                         params, bo['max_trials'])
         print('Found optimal LMNN hyper parameters for %d points in %s\n' % (len(y_tr), time() - t_bo))
 
         # Reconstruct full training set

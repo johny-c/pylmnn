@@ -4,8 +4,8 @@ from sklearn.neighbors import KNeighborsClassifier
 from .lmnn import LargeMarginNearestNeighbor
 
 
-def find_hyper_params(x_tr, y_tr, x_va, y_va, params, max_trials=12):
-    """Find optimal hyper parameters for LMNN using Bayesian Optimization
+def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
+    """Find optimal hyperparameters for LMNN using Bayesian Optimization
 
     Args:
         x_tr:       [N, D] array-like, training inputs
