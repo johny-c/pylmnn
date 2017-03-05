@@ -1,8 +1,6 @@
 The pylmnn API reference
 ========================
 
-Submodules
-----------
 
 pylmnn.bayesopt module
 ----------------------

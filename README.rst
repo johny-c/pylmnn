@@ -46,7 +46,6 @@ The simplest use case would be something like:
 
 .. literalinclude:: ../examples/minimal.py
    :language: python
-   :linenos:
 
 You can check the examples directory for a demonstration of how to use the
 code with different datasets and how to estimate good hyperparameters with Bayesian Optimisation.

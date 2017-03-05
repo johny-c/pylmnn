@@ -7,10 +7,10 @@ Welcome to PyLMNN's documentation!
 ==================================
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 2
 
    readme
-   source/pylmnn
+   api
 
 Indices and tables
 ==================
