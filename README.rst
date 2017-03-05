@@ -1,7 +1,7 @@
-README
+PyLMNN
 ======
 
-**pylmnn** is a python implementation of the `Large Margin Nearest
+**PyLMNN** is a python implementation of the `Large Margin Nearest
 Neighbor <#paper>`__ algorithm for metric learning.
 
 This implementation follows closely the original MATLAB code by Kilian
