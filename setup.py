@@ -35,7 +35,7 @@ if __name__ == '__main__':
                     'Topic :: Scientific/Engineering :: Artificial Intelligence'],
 
         packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-        package_dir={'': 'pylmnn'},
+        package_dir={'pylmnn': 'pylmnn'},
         # setup_requires=['numpy', 'scipy', 'scikit_learn', 'GPy'],
         install_requires=['numpy>=1.11',    
                           'scipy>=0.18',
