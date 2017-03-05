@@ -23,7 +23,7 @@ import sys
 
 devdir = os.environ['HOME'] + '/projects/pylmnn'
 sys.path.insert(0, os.path.abspath('..'))
-#sys.path.insert(0, os.path.abspath(os.path.join(devdir, 'pylmnn')))
+sys.path.insert(0, os.path.abspath('.'))
 
 
 # Markdown
@@ -52,7 +52,6 @@ extensions = ['sphinx.ext.autodoc',
     'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon']
-#    'numpydoc']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
