@@ -36,10 +36,11 @@ if __name__ == '__main__':
 
         packages=find_packages(exclude=['contrib', 'docs', 'tests']),
         package_dir={'pylmnn': 'pylmnn'},
+        setup_requires=['GPy>=1.5.6'],
         install_requires=['numpy>=1.11',
                           'scipy>=0.18',
                           'scikit_learn>=0.18',
-			  'GPy>=1.5.6',
+			              'GPy>=1.5.6',
                           'GPyOpt>=1.0.3',
-                          'matplotlib>=1.5.3'],
+                          'matplotlib>=1.5.3']
     )
