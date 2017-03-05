@@ -35,12 +35,12 @@ if __name__ == '__main__':
                     'Topic :: Scientific/Engineering :: Artificial Intelligence'],
 
         packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-        package_dir={'pylmnn': 'pylmnn'},
-        setup_requires=['GPy>=1.5.6'],
+        package_dir={'': 'pylmnn'},
+        setup_requires=['numpy', 'scipy', 'scikit_learn', 'GPy'],
         install_requires=['numpy>=1.11',
                           'scipy>=0.18',
                           'scikit_learn>=0.18',
-			              'GPy>=1.5.6',
+                          'GPy>=1.5.6',
                           'GPyOpt>=1.0.3',
                           'matplotlib>=1.5.3']
     )
