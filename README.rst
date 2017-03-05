@@ -44,7 +44,7 @@ Usage
 
 The simplest use case would be something like:
 
-.. literalinclude:: ./examples/minimal.py
+.. literalinclude:: ../examples/minimal.py
    :language: python
    :linenos:
 
