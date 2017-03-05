@@ -1,4 +1,5 @@
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import numpy.linalg as LA
 from sklearn import manifold
@@ -58,21 +59,26 @@ def test_knn(x_tr, y_tr, x_te, y_te, k, L=None):
     return acc
 
 
-def plot_ba(L, x, y, tsne=False):
+def plot_ba(L, x, y, dim_pref=2, t_sne=False):
     """Draw a scatter plot of points, colored by their labels, before and after applying a
     learned transformation
 
     Args:
-        L:       [d, D] array-like, the learned transformation
-        x:       [N, D] array-like, inputs
-        y:       [N,]   array_like, labels
-        tsne:    bool, whether to use t-SNE to produce the plot or just use the first two
+        L:        [d, D] array-like, the learned transformation
+        x:        [N, D] array-like, inputs
+        y:        [N,]   array_like, labels
+        dim_pref: int, the preferred number of dimensions to plot (Default value = 2)
+        t_sne:    bool, whether to use t-SNE to produce the plot or just use the first two
                 dimensions of the inputs (Default value = False)
 
     """
-    if tsne:
+    if dim_pref < 2 or dim_pref > 3:
+        print('Preferred plot dimensionality must be 2 or 3, setting to 2!')
+        dim_pref = 2
+
+    if t_sne:
         print("Computing t-SNE embedding")
-        tsne = manifold.TSNE(n_components=2, init='pca', random_state=0)
+        tsne = manifold.TSNE(n_components=dim_pref, init='pca', random_state=0)
         x_tsne = tsne.fit_transform(x)
         Lx_tsne = tsne.fit_transform(x.dot(L.T))
         x = x_tsne
@@ -81,14 +87,14 @@ def plot_ba(L, x, y, tsne=False):
         Lx = x.dot(L.T)
 
     fig = plt.figure()
-    if x.shape[1] > 2:
+    if x.shape[1] > 2 and dim_pref == 3:
         ax = fig.add_subplot(121, projection='3d')
         ax.scatter(x[:, 0], x[:, 1], x[:, 2], c=y)
         ax.set_title('Original Data')
         ax = fig.add_subplot(122, projection='3d')
         ax.scatter(Lx[:, 0], Lx[:, 1], Lx[:, 2], c=y)
         ax.set_title('Transformed Data')
-    elif x.shape[1] == 2:
+    elif x.shape[1] >= 2:
         ax = fig.add_subplot(121)
         ax.scatter(x[:, 0], x[:, 1], c=y)
         ax.set_title('Original Data')

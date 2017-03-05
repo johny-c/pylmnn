@@ -22,9 +22,9 @@ import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
 devdir = os.environ['HOME'] + '/projects/pylmnn'
-sys.path.insert(0, os.path.abspath('.'))
-sys.path.insert(0, os.path.abspath(devdir))
-#sys.path.append(os.path.abspath(devdir + '/docs/sphinxext'))
+sys.path.insert(0, os.path.abspath('..'))
+#sys.path.insert(0, os.path.abspath(os.path.join(devdir, 'pylmnn')))
+
 
 # Markdown
 from recommonmark.parser import CommonMarkParser

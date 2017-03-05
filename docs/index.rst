@@ -8,10 +8,9 @@ Welcome to PyLMNN's documentation!
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
 
    readme
-   source/modules
+   source/pylmnn
 
 Indices and tables
 ==================

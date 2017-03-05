@@ -1,8 +1,8 @@
 PyLMNN
 ======
 
-**PyLMNN** is a python implementation of the `Large Margin Nearest
-Neighbor <#paper>`__ algorithm for metric learning.
+**PyLMNN** is an implementation of the `Large Margin Nearest
+Neighbor <#paper>`__ algorithm for metric learning in pure python.
 
 This implementation follows closely the original MATLAB code by Kilian
 Weinberger found at https://bitbucket.org/mlcircus/lmnn. This version
@@ -44,17 +44,10 @@ Usage
 
 The simplest use case would be something like:
 
-::
+.. literalinclude:: examples/minimal.py
 
-    X, y = load_my_data(dataset_name)
-    x_tr, x_te, y_tr, y_te = train_test_split(X, y, train_size=0.5, stratify=y)
-    k_tr, k_te, dim_out, max_iter = 3, 1, X.shape[1], 180
-    lmnn = LMNN(k=k_tr, max_iter=max_iter, dim_out=dim_out)
-    lmnn = lmnn.fit(x_tr, y_tr)
-    test_acc = test_knn(x_tr, y_tr, x_te, y_te, k=k_te, L=lmnn.L)
-
-You can check the examples directory for examples of how to use the
-code.
+You can check the examples directory for a demonstration of how to use the
+code with different datasets and how to estimate good hyper parameters with Bayesian Optimisation.
 
 References
 ^^^^^^^^^^

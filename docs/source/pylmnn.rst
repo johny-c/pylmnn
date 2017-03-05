@@ -1,5 +1,5 @@
-pylmnn package
-==============
+The pylmnn API reference
+========================
 
 Submodules
 ----------
