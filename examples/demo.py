@@ -11,7 +11,7 @@ from pylmnn.helpers import test_knn, plot_ba, pca_transform
 from data_fetch import fetch_from_config
 
 
-def main(demo='mnist'):
+def main(demo='shrec14'):
 
     cfg = ConfigParser()
     cfg.read(demo + '.cfg')

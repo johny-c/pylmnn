@@ -36,8 +36,8 @@ if __name__ == '__main__':
 
         packages=find_packages(exclude=['contrib', 'docs', 'tests']),
         package_dir={'': 'pylmnn'},
-        setup_requires=['numpy', 'scipy', 'scikit_learn', 'GPy'],
-        install_requires=['numpy>=1.11',
+        # setup_requires=['numpy', 'scipy', 'scikit_learn', 'GPy'],
+        install_requires=['numpy>=1.11',    
                           'scipy>=0.18',
                           'scikit_learn>=0.18',
                           'GPy>=1.5.6',

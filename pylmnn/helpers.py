@@ -80,8 +80,8 @@ def plot_ba(L, x, y, tsne=False):
     else:
         Lx = x.dot(L.T)
 
+    fig = plt.figure()
     if x.shape[1] > 2:
-        fig = plt.figure()
         ax = fig.add_subplot(121, projection='3d')
         ax.scatter(x[:, 0], x[:, 1], x[:, 2], c=y)
         ax.set_title('Original Data')
@@ -89,11 +89,11 @@ def plot_ba(L, x, y, tsne=False):
         ax.scatter(Lx[:, 0], Lx[:, 1], Lx[:, 2], c=y)
         ax.set_title('Transformed Data')
     elif x.shape[1] == 2:
-        plt.subplot(121)
-        plt.scatter(x[:, 0], x[:, 1], c=y)
-        plt.title('Original Data')
-        plt.subplot(122)
-        plt.scatter(Lx[:, 0], Lx[:, 1], c=y)
-        plt.title('Transformed Data')
+        ax = fig.add_subplot(121)
+        ax.scatter(x[:, 0], x[:, 1], c=y)
+        ax.set_title('Original Data')
+        ax = fig.add_subplot(122)
+        ax.scatter(Lx[:, 0], Lx[:, 1], c=y)
+        ax.set_title('Transformed Data')
 
     plt.show()
