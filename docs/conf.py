@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # PyLMNN documentation build configuration file, created by
-# sphinx-quickstart on Tue Feb 28 23:52:24 2017.
+# sphinx-quickstart on Sun Mar  5 16:59:10 2017.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -22,8 +22,18 @@ import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
 devdir = os.environ['HOME'] + '/projects/pylmnn'
-sys.path.append(os.path.abspath(devdir))
+sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.abspath(devdir))
 #sys.path.append(os.path.abspath(devdir + '/docs/sphinxext'))
+
+# Markdown
+from recommonmark.parser import CommonMarkParser
+
+source_parsers = {
+    '.md': CommonMarkParser,
+}
+
+
 
 # -- General configuration ------------------------------------------------
 
@@ -50,8 +60,8 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-# source_suffix = ['.rst', '.md']
-source_suffix = '.rst'
+source_suffix = ['.rst', '.md']
+# source_suffix = '.rst'
 
 # The master toctree document.
 master_doc = 'index'
@@ -102,11 +112,6 @@ html_theme = "sphinx_rtd_theme"
 # documentation.
 #
 # html_theme_options = {}
-html_theme_options = {
-                        #"rightsidebar": "true",
-                        #"relbarbgcolor": "black"
-                     }
-
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,

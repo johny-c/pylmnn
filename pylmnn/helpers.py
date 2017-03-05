@@ -69,7 +69,6 @@ def plot_ba(L, x, y, tsne=False):
         tsne:    bool, whether to use t-SNE to produce the plot or just use the first two
                 dimensions of the inputs (Default value = False)
 
-    Returns:        float, the k-nn accuracy
     """
     if tsne:
         print("Computing t-SNE embedding")
@@ -98,4 +97,3 @@ def plot_ba(L, x, y, tsne=False):
         plt.title('Transformed Data')
 
     plt.show()
-
