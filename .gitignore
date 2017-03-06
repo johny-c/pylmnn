@@ -57,6 +57,7 @@ dist
 _build
 .ipynb_checkpoints/
 upload
+todo/
 
 # Project Specific #
 ####################

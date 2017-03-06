@@ -1,8 +1,6 @@
-pylmnn package
-==============
+API Reference
+========================
 
-Submodules
-----------
 
 pylmnn.bayesopt module
 ----------------------
@@ -28,11 +26,3 @@ pylmnn.lmnn module
     :undoc-members:
     :show-inheritance:
 
-
-Module contents
----------------
-
-.. automodule:: pylmnn
-    :members:
-    :undoc-members:
-    :show-inheritance:

@@ -9,13 +9,13 @@ if __name__ == '__main__':
     here = path.abspath(path.dirname(__file__))
 
     # Get the long description from the README file
-    with open(path.join(here, 'README.md'), encoding='utf-8') as f:
+    with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
         long_description = f.read()
 
 
     setup(
         name='PyLMNN',
-        version='0.2.0',
+        version='1.0.2',
         description='Large Margin Nearest Neighbor implementation in python',
         long_description=long_description,
         url='https://github.com/johny-c/pylmnn.git',
@@ -40,5 +40,5 @@ if __name__ == '__main__':
                           'scipy>=0.18',
                           'scikit_learn>=0.18',
                           'GPyOpt>=1.0.3',
-                          'matplotlib>=1.5.3'],
+                          'matplotlib>=1.5.3']
     )
