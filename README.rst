@@ -78,6 +78,8 @@ The simplest use case would be something like:
 You can check the examples directory for a demonstration of how to use the
 code with different datasets and how to estimate good hyperparameters with Bayesian Optimisation.
 
+Documentation can also be found at http://pylmnn.readthedocs.io/en/latest/ .
+
 References
 ^^^^^^^^^^
 

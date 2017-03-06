@@ -15,7 +15,7 @@ if __name__ == '__main__':
 
     setup(
         name='PyLMNN',
-        version='1.0.2',
+        version='1.1.0',
         description='Large Margin Nearest Neighbor implementation in python',
         long_description=long_description,
         url='https://github.com/johny-c/pylmnn.git',
@@ -24,7 +24,7 @@ if __name__ == '__main__':
         license='GPLv3',
 
         classifiers=[
-                    'Development Status :: 3 - Alpha',
+                    'Development Status :: 4 - Beta',
                     'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
                     'Natural Language :: English',
                     'Operating System :: MacOS :: MacOS X',
