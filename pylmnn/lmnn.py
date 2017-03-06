@@ -44,6 +44,7 @@ class LargeMarginNearestNeighbor:
         n_funcalls:  int, counter of calls to _loss_grad
         logger:      logger object, responsible for printing intermediate messages/warnings/etc.
         details:     dict, statistics about the algorithm execution mainly from the optimizer
+
     """
     def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=False,
                  dim_out=None, max_constr=int(1e7), load=None, save=None, temp_dir='temp_res',

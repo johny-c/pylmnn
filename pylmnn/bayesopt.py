@@ -16,10 +16,12 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
         max_trials: maximum number of hyper-parameter configurations to test (Default value = 12)
 
     Returns:
-        k_tr_bo:    int, optimal number of target neighbors during training
-        k_te_bo:    int, optimal number of reference neighbors during testing
-        dim_out_bo: int, optimal dimensionality for the transformed inputs
-        max_iter_bo int, optimal number of iterations for the optimization routine
+            (tuple): (int, int, int, int)
+
+        k_tr_bo (int):      the optimal number of target neighbors during training
+        k_te_bo (int):      the optimal number of reference neighbors during testing
+        dim_out_bo (int):   the optimal dimensionality for the transformed inputs
+        max_iter_bo (int):  the optimal number of iterations for the optimization routine
     """
 
     unique_labels, class_sizes = np.unique(y_tr, return_counts=True)

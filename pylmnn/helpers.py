@@ -43,7 +43,8 @@ def test_knn(x_tr, y_tr, x_te, y_te, k, L=None):
         L:          [d, D] array-like, if not None, transform the inputs first by applying this
                     transformation (Default value = None)
 
-    Returns:        float, the k-nn accuracy
+    Returns:
+                (float), the k-nn accuracy
     """
     knn_clf = KNeighborsClassifier(n_neighbors=k)
     if L is None:
