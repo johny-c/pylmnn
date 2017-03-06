@@ -29,7 +29,9 @@ sys.path.insert(0, os.path.abspath('.'))
 # For autodoc
 import mock
 
-MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot', 'sklearn', 'GPyOpt']
+MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot', 'sklearn',
+        'GPyOpt', 'GPyOpt.methods', 'matplotlib.axes', 'sklearn.metrics',
+        'mpl_toolkits.mplot3d']
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
