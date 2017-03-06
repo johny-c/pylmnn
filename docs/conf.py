@@ -31,7 +31,7 @@ import mock
 
 MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot', 'sklearn',
         'GPyOpt', 'GPyOpt.methods', 'matplotlib.axes', 'sklearn.metrics',
-        'sklearn.metrics.pairwise', 'sklearn.utils', 'logging', # 'sys', 'os',
+        'sklearn.metrics.pairwise', 'sklearn.utils', #'logging', # 'sys', 'os',
         'mpl_toolkits.mplot3d', 'sklearn.neighbors', 'numpy.linalg',
         'sklearn.datasets', 'sklearn.model_selection']
 
