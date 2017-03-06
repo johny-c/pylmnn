@@ -14,7 +14,7 @@ from data_fetch import fetch_from_config
 def main(demo='shrec14'):
 
     if demo not in ['shrec14', 'mnist', 'letters', 'usps', 'isolet', 'faces']:
-        raise FileNotFoundError('Dataset {} not found! Exiting.'.format(demo))
+        raise FileNotFoundError('Dataset {} not found in examples directory! Exiting.'.format(demo))
 
     cfg = ConfigParser()
     cfg.read(demo + '.cfg')
