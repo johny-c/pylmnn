@@ -5,23 +5,20 @@ from .lmnn import LargeMarginNearestNeighbor
 
 
 def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
-    """Find optimal hyperparameters for LMNN using Bayesian Optimization
+    """Find the best hyperparameters for LMNN for a specified number of trials using Bayesian Optimisation
 
     Args:
-        x_tr:       [N, D] array-like, training inputs
-        y_tr:       [N,]   array_like, training labels
-        x_va:       [M, D] array-like, validation inputs
-        y_va:       [M,]   array_like, validation labels
-        params:     dict, parameters to pass to the LargeMarginNearestNeighbor classifier
-        max_trials: maximum number of hyper-parameter configurations to test (Default value = 12)
+        x_tr (array_like): [N, D], the training samples
+        y_tr (array_like): [N,], the training labels
+        x_va (array_like): [M, D], the testing samples
+        y_va (array_like): [M,], the testing samples
+        params (dict):     parameters to be passed to the LargeMarginNearestNeighbor classifier
+        max_trials (int):  maximum number of hyperparameter configurations to test (default: 12)
 
     Returns:
-            (tuple): (int, int, int, int)
+        tuple:
 
-        k_tr_bo (int):      the optimal number of target neighbors during training
-        k_te_bo (int):      the optimal number of reference neighbors during testing
-        dim_out_bo (int):   the optimal dimensionality for the transformed inputs
-        max_iter_bo (int):  the optimal number of iterations for the optimization routine
+        (int, int, int, int) The best hyperparameters found (k_tr, k_te, dim_out, max_iter)
     """
 
     unique_labels, class_sizes = np.unique(y_tr, return_counts=True)
@@ -31,7 +28,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     class BOptions: pass
 
     opt = BOptions()
-    opt.max_trials = max_trials  # How many parameter settings do you want to try?
+    opt.max_trials = max_trials
     opt.min_k = 1
     opt.max_k = int(min(min_class_size - 1, 15))
     opt.min_iter = 10
@@ -42,6 +39,15 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     bo_iter = 0
 
     def optimize_clf(hp_vec):
+        """
+
+        Args:
+            hp_vec (array_like): Vector of hyperparameters to evaluate
+
+        Returns:
+            float: the validation error obtained
+
+        """
         hp_vec = hp_vec[0]
         k_tr = int(round(hp_vec[0]))
         k_te = int(round(hp_vec[1]))

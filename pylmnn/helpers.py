@@ -7,14 +7,17 @@ from sklearn.neighbors import KNeighborsClassifier
 
 
 def pca_transform(x, var_ratio=1):
-    """Apply PCA and get the first k dimensions so that the variance fraction given is explained
+    """
 
     Args:
-        x:          [N, D] array-like, inputs
-        var_ratio:  float, variance ratio to be captured
+        x (array_like):     N inputs of dimension D
+        var_ratio (float):  the variance ratio to be captured
 
-    Returns:        [N, m] array-like, N inputs projected on the m principal components
+    Returns:
+        array_like:         N inputs projected onto m principal components
+
     """
+
     cc = np.cov(x, rowvar=False)  # Mean is removed
     evals, evecs = LA.eigh(cc)  # Get evals in ascending order, evecs in columns
     evecs = np.fliplr(evecs)  # Flip evecs to get them in descending eigenvalue order
@@ -36,15 +39,16 @@ def test_knn(x_tr, y_tr, x_te, y_te, k, L=None):
     """Compute the k-nearest neighbor accuracy
 
     Args:
-        x_tr:       [N, D] array-like, training inputs
-        y_tr:       [N,]   array_like, training labels
-        x_tr:       [M, D] array-like, testing inputs
-        y_tr:       [M,]   array_like, testing labels (ground-truth)
-        L:          [d, D] array-like, if not None, transform the inputs first by applying this
-                    transformation (Default value = None)
+        x_tr (array_like):  [N, D] training inputs
+        y_tr (array_like):  [N,] training labels
+        x_te (array_like):  [M, D] testing inputs
+        y_te (array_like):  [M,] testing labels (ground truth)
+        k (int):            the number of neighbors to consider
+        L (array_like):     the learned linear transformation (default: None)
 
     Returns:
-                (float), the k-nn accuracy
+        float:    the k-nn accuracy
+
     """
     knn_clf = KNeighborsClassifier(n_neighbors=k)
     if L is None:
@@ -61,16 +65,15 @@ def test_knn(x_tr, y_tr, x_te, y_te, k, L=None):
 
 
 def plot_ba(L, x, y, dim_pref=2, t_sne=False):
-    """Draw a scatter plot of points, colored by their labels, before and after applying a
-    learned transformation
+    """Draw a scatter plot of points, colored by their labels, before and after applying a learned transformation
 
     Args:
-        L:        [d, D] array-like, the learned transformation
-        x:        [N, D] array-like, inputs
-        y:        [N,]   array_like, labels
-        dim_pref: int, the preferred number of dimensions to plot (Default value = 2)
-        t_sne:    bool, whether to use t-SNE to produce the plot or just use the first two
-                dimensions of the inputs (Default value = False)
+        L (array_like): [d, D] the learned transformation
+        x (array_like): [N, D] inputs
+        y (array_like): [N,]  labels
+        dim_pref (int): the preferred number of dimensions to plot (default: 2)
+        t_sne (bool):   whether to use t-SNE to produce the plot or just use the first two dimensions
+                        of the inputs (default: False)
 
     """
     if dim_pref < 2 or dim_pref > 3:

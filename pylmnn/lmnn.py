@@ -17,35 +17,31 @@ class LargeMarginNearestNeighbor:
 
     Copyright (c) 2017, John Chiotellis
     Licensed under the GPLv3 license (see LICENSE.txt)
-    
+
     Args:
-        L:           [d, D] array-like, initial transformation, if None identity or pca will be used
-                     based on 'use_pca' (default: None)
-        k:           int, number of target neighbors (default: 3)
-        max_iter:    int, maximum number of iterations in the optimization (default: 200)
-        use_pca:     bool, if True use pca to fetch_from_config the transformation,
-                            otherwise identity is used except if an L is given  (default: True)
-        tol:         float, tolerance for the optimization  (default: 1e-5)
-        verbose:     bool, output information from the L-BFGS optimizer (default:False)
-        dim_out:     int, preferred dimensionality of the inputs after the transformation,
-                     if None it is inferred from use_pca and L (default:None)
-        max_constr:  int, maximum number of constraints to enforce per iteration
-        load:        string, if not None load the intermediate linear transformations from a
-                     folder named as this string (default: None)
-        save:        string, if not None save the intermediate linear transformations in a folder
-                     named as this string (default: None)
-        temp_dir:    string, name of directory to save/load computed transformations to/from
-                     (default: 'temp_res')
-        log_level:   level of logger verbosity (default: logging.INFO)
+        L (array_like):     [d, D] initial transformation, if None identity or pca will be used based on `use_pca` (default: None)
+        k (int):            number of target neighbors (default: 3)
+        max_iter (int):     maximum number of iterations in the optimization (default: 200)
+        use_pca (bool):     whether to use pca to warm-start the linear transformation,
+                            if False, the identity is used except if `L` is not None (default: True)
+        tol (float):        tolerance for the optimization  (default: 1e-5)
+        verbose (bool):     whether to output information from the L-BFGS optimizer (default: False)
+        dim_out (int):      preferred dimensionality of the inputs after the transformation,
+                            if None it is inferred from use_pca and L (default: None)
+        max_constr (int):   maximum number of constraints to enforce per iteration (default: 10 million)
+        load (string):      directory name from which to load intermediate linear transformations (default: None)
+        save (string):      directory name to save intermediate linear transformations in (default: None)
+        temp_dir (string):  name of directory to save/load computed transformations to/from (default: 'temp_res')
+        log_level (int):    level of logger verbosity (default: logging.INFO)
 
     Attributes:
-        targets:     [N, k] array-like, the k target neighbors of each input
-        dfG:         [d, D] array-like, the gradient component from target neighbors
-        n_funcalls:  int, counter of calls to _loss_grad
-        logger:      logger object, responsible for printing intermediate messages/warnings/etc.
-        details:     dict, statistics about the algorithm execution mainly from the optimizer
-
+        targets (array_like):    [N, k], the k target neighbors of each input
+        dfG (array_like):        [d, D], the gradient component from target neighbors (computed once)
+        n_funcalls (int):        counter of calls to _loss_grad
+        logger (object):         logger object, responsible for printing intermediate messages/warnings/etc.
+        details (dict):          statistics about the algorithm execution mainly from the L-BFGS optimizer
     """
+
     def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=False,
                  dim_out=None, max_constr=int(1e7), load=None, save=None, temp_dir='temp_res',
                  log_level=logging.INFO):
@@ -72,9 +68,10 @@ class LargeMarginNearestNeighbor:
         """Applies the learned transformation to the inputs
 
         Args:
-          X:     [N, D] input samples (Default value = None, defined when fit is called)
+          X (array_like):     [N, D] input samples (default: None, defined when fit is called)
 
-        Returns: [N, d] transformed inputs
+        Returns:
+             array_like:     [N, d] transformed inputs
 
         """
         if X is None:
@@ -85,8 +82,8 @@ class LargeMarginNearestNeighbor:
         """Check the input features and labels for consistency
 
         Args:
-          X:      [N, D] array-like, N input vectors of dimension D
-          labels: [N,] array-like, N input labels
+          X (array_like):      [N, D], N input vectors of dimension D
+          labels (array_like): [N,], N input labels
 
         """
         assert len(labels) == X.shape[0], "Number of labels ({}) does not match the number of " \
@@ -102,7 +99,7 @@ class LargeMarginNearestNeighbor:
         self.X = X
 
     def _init_transformer(self):
-        """ """
+        """Initialise the linear transformation by loading from a file, applying PCA or setting to identity """
         if self.load is not None:
             self.L = np.load(os.path.join(self.temp_dir, self.load))
             return
@@ -124,16 +121,16 @@ class LargeMarginNearestNeighbor:
                 outdim = D
             self.L = self.L[:outdim]
 
-    def fit(self, X, labels):
-        """Finds a linear transformation by optimization of the unconstrained problem, such that
-        the k-nearest neighbor classification accuracy improves
+    def fit(self, X, y):
+        """Find a linear transformation by optimization of the unconstrained problem, such that the k-nearest neighbor
+        classification accuracy improves
 
         Args:
-          X:      [N, D] training samples
-          labels: [N,] class labels of training samples
+          X (array_like): [N, D] training samples
+          y (array_like): [N,] class labels of training samples
 
         Returns:
-          self
+          LargeMarginNearestNeighbor: self
 
         """
         verbose = self.params['verbose']
@@ -141,7 +138,7 @@ class LargeMarginNearestNeighbor:
         max_iter = self.params['max_iter']
 
         # Check data consistency and fetch_from_config label counts
-        self._check_inputs(X, labels)
+        self._check_inputs(X, y)
         k = self.params['k']
         print('Parameters:\n')
         [print('{:10}: {}'.format(k, v)) for k, v in self.params.items()]
@@ -183,10 +180,13 @@ class LargeMarginNearestNeighbor:
         """Compute the loss under a given L and the loss gradient w.r.t. L
 
         Args:
-          L: [dxD,] the current linear transformation (flattened)
+          L(array_like): [dxD,] the current linear transformation (flattened)
 
         Returns:
-          float, new loss and [dxD,] (flattened) new gradient
+            tuple:
+
+          float: the new loss
+          array_like: [dxD,] the new gradient (flattened)
 
         """
         N, D = self.X.shape
@@ -236,7 +236,8 @@ class LargeMarginNearestNeighbor:
     def _select_targets(self):
         """Compute target neighbors, that stay fixed during training
 
-        Returns: [N,k] matrix with k neighbors for each input
+        Returns:
+            array_like: [N,k] k neighbors for each input
 
         """
         k = self.params['k']
@@ -258,11 +259,13 @@ class LargeMarginNearestNeighbor:
         """Compute all impostor pairs exactly
 
         Args:
-          Lx:           [N,d] transformed inputs matrix
-          margin_radii: [N,] vector of distances to the farthest target neighbors + margin
+          Lx (array_like):           [N,d] transformed inputs
+          margin_radii (array_like): [N,] distances to the farthest target neighbors + margin
 
         Returns:
-          [P,] vectors imp1 and imp2, samples that violate the margin of other sample(s)
+            tuple:
+
+            (array_like, array_like, array_like): Impostor pairs and their distances
 
         """
         N = self.X.shape[0]
@@ -304,12 +307,15 @@ class LargeMarginNearestNeighbor:
         """Compute all impostor pairs exactly using a sparse matrix for storage
 
         Args:
-          Lx:           [N,d] transformed inputs matrix
-          margin_radii: [N,] vector of distances to the farthest target neighbors + margin
+          Lx (array_like):            [N, d] transformed inputs
+          margin_radii (array_like):  [N,] distances to the farthest target neighbors + margin
 
         Returns:
-          [P,] vectors imp1 and imp2, samples that violate the margin of other sample(s)
+            tuple:
 
+            imp1 (array_like): [m,] sample indices
+            imp2 (array_like): [m,] indices of impostors (samples that violate the margin) to imp1
+            dist (array_like): [m,] pairwise distances of (imp1, imp2)
         """
         N = self.X.shape[0]
 
@@ -347,15 +353,17 @@ class LargeMarginNearestNeighbor:
         """Find impostor pairs in chunks to avoid large memory usage
 
         Args:
-          x1: [n,] vector of transformed inputs
-          x2: [m,] vector of transformed inputs, where always m < n
-          t1: [n,] vector of distances to margins
-          t2: [m,] vector of distances to margins
-          batch_size: size of each chunk of x1 to compute distances to (Default value = 500)
-          return_dist:  (Default value = False)
+          x1 (array_like):      [n,] transformed inputs
+          x2 (array_like):      [m,] transformed inputs, where always m < n
+          t1 (array_like):      [n,] distances to margins
+          t2 (array_like):      [m,] distances to margins
+          batch_size (int):     size of each chunk of x1 to compute distances to (default: 500)
+          return_dist (bool):  (default: False)
 
         Returns:
-          px1, px1, impostor pairs vectors
+            tuple:
+
+            (array_like, array_like) indices of impostor pairs
 
         """
         n, m = len(t1), len(t2)
@@ -385,13 +393,12 @@ class LargeMarginNearestNeighbor:
         """Computes the sum of weighted outer products using a sparse weights matrix
 
         Args:
-          x:       [N, D] matrix consisting of N row vectors
-          weights: [N, N] csr_matrix, target neighbors
-          check: bool, if True rows and columns of the symmetrized weights matrix that are zero
-          are removed (default: False)
+          x (array_like):       [N, D] N feature vectors of dimension D
+          weights (csr_matrix): [N, N] target neighbors (adjacency-like) matrix
+          check (bool):         whether to remove rows and columns of the symmetrized weights matrix that are zero (default: False)
 
         Returns:
-          [D, D] the sum of all weighted outer products
+            array_like:         [D, D] the sum of all weighted outer products
 
         """
         weights_sym = weights + weights.T
@@ -412,12 +419,13 @@ class LargeMarginNearestNeighbor:
         """Equivalent to  np.sum(np.square(x[a] - x[b]), axis=1)
 
         Args:
-          X: [N, D] array-like, feature matrix
-          a: m indices of samples
-          b: m indices of samples
-          batch_size:  (Default value = 500)
+          X (array_like): [N, D] N feature vectors of dimension D
+          a (array_like): [m,] indices of samples
+          b (array_like): [m,] indices of other samples
+          batch_size:  size of each chunk of X to compute distances for (default: 500)
 
-        Returns: [m,] array-like, pairwise distances
+        Returns:
+            array-like: [m,] pairwise distances
 
         """
         n = len(a)
@@ -428,14 +436,15 @@ class LargeMarginNearestNeighbor:
 
     # @staticmethod
     def _unique_pairs(self, i, j, n):
-        """
+        """Find the unique pairs contained in zip(i, j)
 
         Args:
-          i: list, m indices of samples
-          j: list, m indices of impostors
-          n: int, total number of samples (maximum sample index + 1)
+          i (list): m indices of samples
+          j (list): m indices of impostors
+          n (int): total number of samples (= maximum sample index + 1)
 
-        Returns: [k,] array-like, indices of unique (sample, impostor) pairs in zip(i, j)
+        Returns:
+            array-like: k <= m indices of unique pairs
 
         """
         # First generate a hash array
@@ -450,9 +459,10 @@ class LargeMarginNearestNeighbor:
         """Loads a linear transformation from the temporary results directory
 
         Args:
-          iteration: int, Load the saved L from this iteration
+          iteration (int): Load the saved linear transformation from this iteration
 
-        Returns:    [dxD] array-like, the saved L
+        Returns:
+            array-like: [dxD] the saved linear transformation
 
         """
         filename = self.save + '_' + str(iteration) + '.npy'
