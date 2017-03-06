@@ -45,6 +45,7 @@ Usage
 The simplest use case would be something like:
 
 .. code-block:: python
+
    from sklearn.model_selection import train_test_split
    from sklearn.datasets import fetch_mldata
    from pylmnn.lmnn import LargeMarginNearestNeighbor as LMNN
