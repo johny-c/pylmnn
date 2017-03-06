@@ -31,7 +31,8 @@ import mock
 
 MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot', 'sklearn',
         'GPyOpt', 'GPyOpt.methods', 'matplotlib.axes', 'sklearn.metrics',
-        'mpl_toolkits.mplot3d']
+        'sklearn.metrics.pairwise',
+        'mpl_toolkits.mplot3d', 'sklearn.neighbors', 'numpy.linalg', ]
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()
 
