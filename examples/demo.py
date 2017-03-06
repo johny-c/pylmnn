@@ -1,6 +1,6 @@
 import numpy as np
 from time import time
-import logging
+import logging, sys
 from sklearn.model_selection import train_test_split
 from configparser import ConfigParser
 
@@ -13,8 +13,13 @@ from data_fetch import fetch_from_config
 
 def main(demo='shrec14'):
 
+    if demo not in ['shrec14', 'mnist', 'letters', 'usps', 'isolet', 'faces']:
+        raise FileNotFoundError('Dataset {} not found! Exiting.'.format(demo))
+
     cfg = ConfigParser()
     cfg.read(demo + '.cfg')
+    data_set_name = cfg['fetch']['name']
+    print('Data set name: {}'.format(data_set_name))
 
     x_tr, x_te, y_tr, y_te = fetch_from_config(cfg)
 
@@ -69,4 +74,5 @@ def main(demo='shrec14'):
 
 
 if __name__ == '__main__':
-    main()
+    main(str(sys.argv[1])) if len(sys.argv) > 1 else main()
+

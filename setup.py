@@ -5,6 +5,8 @@ from codecs import open
 from os import path
 
 
+__version__ = '1.1.2'
+
 if __name__ == '__main__':
     here = path.abspath(path.dirname(__file__))
 
@@ -15,7 +17,7 @@ if __name__ == '__main__':
 
     setup(
         name='PyLMNN',
-        version='1.1.0',
+        version=__version__,
         description='Large Margin Nearest Neighbor implementation in python',
         long_description=long_description,
         url='https://github.com/johny-c/pylmnn.git',
@@ -35,7 +37,7 @@ if __name__ == '__main__':
                     'Topic :: Scientific/Engineering :: Artificial Intelligence'],
 
         packages=find_packages(exclude=['contrib', 'docs', 'tests']),
-        package_dir={'pylmnn': 'pylmnn'},
+        package_dir={'': 'pylmnn'},
         install_requires=['numpy>=1.11',
                           'scipy>=0.18',
                           'scikit_learn>=0.18',
