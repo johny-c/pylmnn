@@ -23,5 +23,5 @@ clf = clf.fit(x_tr, y_tr)
 # Compute the k-nearest neighbor test accuracy after applying the learned transformation
 test_acc = test_knn(x_tr, y_tr, x_te, y_te, k=k_te, L=clf.L)
 
-# Make a comparison plot of the test data before and after applying the learned transformation
+# Draw a comparison plot of the test data before and after applying the learned transformation
 plot_ba(clf.L, x_te, y_te, dim_pref=3)
