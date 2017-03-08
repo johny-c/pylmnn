@@ -30,13 +30,13 @@ class LargeMarginNearestNeighbor:
                             if None it is inferred from use_pca and L (default: None)
         max_constr (int):   maximum number of constraints to enforce per iteration (default: 10 million)
         use_sparse (bool):  whether to use a sparse matrix for the impostors storage.
-                            Although using this, the distance to impostors is computated twice,
-                            this way is somewhat faster for larger datasets than with a dense matrix, where unique pairs
+                            Although using this, the distance to impostors is computed twice,
+                            this way is somewhat faster for larger datasets than using a dense matrix, where unique pairs
                             have to be identified explicitly. (default: True)
         load (string):      file name from which to load a linear transformation.
                             If None, initialisation is either identity or eigenvectors from pca. (default: None)
-        save (string):      file name prefix to save intermediate linear transformations to.
-                            Will be extended with number of function call and saved after each function call.
+        save (string):      file name prefix to save intermediate linear transformations to. After every function call,
+                            it will be extended with number of function call and `.npy` file extension.
                             If None, nothing is saved. (default: None)
         temp_dir (string):  name of directory to save/load computed transformations to/from (default: 'temp_res')
         log_level (int):    level of logger verbosity (default: logging.INFO)
