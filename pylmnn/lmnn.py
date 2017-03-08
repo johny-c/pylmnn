@@ -29,8 +29,15 @@ class LargeMarginNearestNeighbor:
         dim_out (int):      preferred dimensionality of the inputs after the transformation,
                             if None it is inferred from use_pca and L (default: None)
         max_constr (int):   maximum number of constraints to enforce per iteration (default: 10 million)
-        load (string):      directory name from which to load intermediate linear transformations (default: None)
-        save (string):      directory name to save intermediate linear transformations in (default: None)
+        use_sparse (bool):  whether to use a sparse matrix for the impostors storage.
+                            Although using this, the distance to impostors is computated twice,
+                            this way is somewhat faster for larger datasets than with a dense matrix, where unique pairs
+                            have to be identified explicitly. (default: True)
+        load (string):      file name from which to load a linear transformation.
+                            If None, initialisation is either identity or eigenvectors from pca. (default: None)
+        save (string):      file name prefix to save intermediate linear transformations to.
+                            Will be extended with number of function call and saved after each function call.
+                            If None, nothing is saved. (default: None)
         temp_dir (string):  name of directory to save/load computed transformations to/from (default: 'temp_res')
         log_level (int):    level of logger verbosity (default: logging.INFO)
 
@@ -40,27 +47,44 @@ class LargeMarginNearestNeighbor:
         n_funcalls (int):        counter of calls to _loss_grad
         logger (object):         logger object, responsible for printing intermediate messages/warnings/etc.
         details (dict):          statistics about the algorithm execution mainly from the L-BFGS optimizer
+        obj_count (int):         class object counter
     """
 
+    obj_count = 0
+
     def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=False,
-                 dim_out=None, max_constr=int(1e7), load=None, save=None, temp_dir='temp_res',
+                 dim_out=None, max_constr=int(1e7), use_sparse=True, load=None, save=None, temp_dir='temp_res',
                  log_level=logging.INFO):
 
-        self.params = dict(k=k, max_iter=max_iter, use_pca=use_pca, tol=tol,
-                           verbose=verbose, dim_out=dim_out)
+        # Parameters
         self.L = L
-        self.targets = None
-        self.dfG = None
+        self.k = k
+        self.max_iter = max_iter
+        self.use_pca = use_pca
+        self.tol = tol
+        self.verbose = verbose
+        self.dim_out = dim_out
+
         self.max_constr = max_constr
+        self.use_sparse = use_sparse
         self.load = load
         self.save = save
         self.temp_dir = temp_dir
+
+        # Attributes
+        self.targets = None
+        self.dfG = None
         self.n_funcalls = 0
 
-        self.logger = logging.getLogger(__name__)
+        # Setup logger
+        LargeMarginNearestNeighbor.obj_count += 1
+        if LargeMarginNearestNeighbor.obj_count == 1:
+            self.logger = logging.getLogger(__name__)
+        else:
+            self.logger = logging.getLogger(__name__ + '(' + str(LargeMarginNearestNeighbor.obj_count) + ')')
         self.logger.setLevel(log_level)
         stream_handler = logging.StreamHandler(stream=sys.stdout)
-        formatter = logging.Formatter(fmt='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        formatter = logging.Formatter(fmt='%(asctime)s  %(name)s - %(levelname)s : %(message)s')
         stream_handler.setFormatter(formatter)
         self.logger.addHandler(stream_handler)
 
@@ -78,23 +102,23 @@ class LargeMarginNearestNeighbor:
             X = self.X
         return X @ self.L.T
 
-    def _check_inputs(self, X, labels):
+    def _check_inputs(self, X, y):
         """Check the input features and labels for consistency
 
         Args:
-          X (array_like):      [N, D], N input vectors of dimension D
-          labels (array_like): [N,], N input labels
+          X (array_like): [N, D], N input vectors of dimension D
+          y (array_like): [N,], N input labels
 
         """
-        assert len(labels) == X.shape[0], "Number of labels ({}) does not match the number of " \
-                                          "points ({})!".format(len(labels), X.shape[0])
-        unique_labels, self.label_idx = np.unique(labels, return_inverse=True)
+        assert len(y) == X.shape[0], "Number of labels ({}) does not match the number of " \
+                                          "points ({})!".format(len(y), X.shape[0])
+        unique_labels, self.label_ind = np.unique(y, return_inverse=True)
         self.labels = np.arange(len(unique_labels))
-        max_k = np.bincount(self.label_idx).min() - 1
+        max_k = np.bincount(self.label_ind).min() - 1
 
-        if self.params['k'] > max_k:
+        if self.k > max_k:
             self.logger.warning('K too high. Setting K to {}\n'.format(max_k))
-            self.params['k'] = max_k
+            self.k = max_k
 
         self.X = X
 
@@ -104,7 +128,7 @@ class LargeMarginNearestNeighbor:
             self.L = np.load(os.path.join(self.temp_dir, self.load))
             return
 
-        if self.params['use_pca']:
+        if self.use_pca:
             cc = np.cov(self.X, rowvar=False)  # Mean is removed
             evals, evecs = LA.eigh(cc)  # Get evals in ascending order, evecs in columns
             evecs = np.fliplr(evecs)    # Flip evecs to get them in descending eigenvalue order
@@ -112,14 +136,13 @@ class LargeMarginNearestNeighbor:
         else:
             self.L = np.eye(self.X.shape[1])
 
-        outdim = self.params['dim_out']
-        if outdim is not None:
+        if self.dim_out is not None:
             D = self.X.shape[1]
-            if outdim > self.L.shape[0]:
+            if self.dim_out > self.L.shape[0]:
                 self.logger.warning('dim_out({}) cannot be larger than the inputs dimensionality '
-                                    '({}), setting dim_out to {}!'.format(outdim, D, D))
-                outdim = D
-            self.L = self.L[:outdim]
+                                    '({}), setting dim_out to {}!'.format(self.dim_out, D, D))
+                self.dim_out = D
+            self.L = self.L[:self.dim_out]
 
     def fit(self, X, y):
         """Find a linear transformation by optimization of the unconstrained problem, such that the k-nearest neighbor
@@ -133,16 +156,13 @@ class LargeMarginNearestNeighbor:
           LargeMarginNearestNeighbor: self
 
         """
-        verbose = self.params['verbose']
-        tol = self.params['tol']
-        max_iter = self.params['max_iter']
+
 
         # Check data consistency and fetch_from_config label counts
         self._check_inputs(X, y)
-        k = self.params['k']
-        print('Parameters:\n')
-        [print('{:10}: {}'.format(k, v)) for k, v in self.params.items()]
-        print()
+
+        self._print_params()
+
         # Initialize L
         self._init_transformer()
 
@@ -153,14 +173,14 @@ class LargeMarginNearestNeighbor:
         # Compute gradient component of target neighbors (constant)
         self.logger.info('Computing gradient component due to target neighbors...')
         N, D = X.shape
-        rows = np.repeat(np.arange(N), k)  # 0 0 0 1 1 1 2 2 2 ... (n-1) (n-1) (n-1) with k=3
+        rows = np.repeat(np.arange(N), self.k)  # 0 0 0 1 1 1 2 2 2 ... (n-1) (n-1) (n-1) with k=3
         cols = self.targets.flatten()
-        target_neighbors = sparse.csr_matrix((np.ones(N*k), (rows, cols)), shape=(N, N))
+        target_neighbors = sparse.csr_matrix((np.ones(N*self.k), (rows, cols)), shape=(N, N))
         self.dfG = self._SODWsp(X, target_neighbors)
 
         # Define optimization problem
         lmfun = lambda x: self._loss_grad(x)
-        disp = 1 if verbose else None
+        disp = 1 if self.verbose else None
         self.logger.info('Now optimizing...')
         self.n_funcalls = 0
         if self.save is not None:
@@ -168,8 +188,8 @@ class LargeMarginNearestNeighbor:
             filename = self.save + '_' + str(self.n_funcalls) + '.npy'
             np.save(os.path.join(self.temp_dir, filename), self.L)
 
-        L, loss, det = optimize.fmin_l_bfgs_b(func=lmfun, x0=self.L, bounds=None, m=100, pgtol=tol,
-                                              maxfun=500*max_iter, maxiter=max_iter, disp=disp)
+        L, loss, det = optimize.fmin_l_bfgs_b(func=lmfun, x0=self.L, bounds=None, m=100, pgtol=self.tol,
+                                              maxfun=500*self.max_iter, maxiter=self.max_iter, disp=disp)
         self.details = det
         self.details['loss'] = loss
         self.L = L.reshape(L.size // D, D)
@@ -208,7 +228,11 @@ class LargeMarginNearestNeighbor:
         # Compute distances to impostors under L
         self.logger.debug('Setting margin radii...')
         margin_radii = np.add(dist_tn[:, -1], 2)
-        imp1, imp2, dist_imp = self._find_impostors_sp(Lx, margin_radii)
+
+        if self.use_sparse:
+            imp1, imp2, dist_imp = self._find_impostors_sp(Lx, margin_radii)
+        else:
+            imp1, imp2, dist_imp = self._find_impostors(Lx, margin_radii)
 
         self.logger.debug('Computing loss and gradient under new L...')
         loss = 0
@@ -240,10 +264,10 @@ class LargeMarginNearestNeighbor:
             array_like: [N,k] k neighbors for each input
 
         """
-        k = self.params['k']
+        k = self.k
         target_neighbors = np.empty((self.X.shape[0], k), dtype=int)
         for label in self.labels:
-            ind, = np.where(np.equal(self.label_idx, label))
+            ind, = np.where(np.equal(self.label_ind, label))
             dist = euclidean_distances(self.X[ind], squared=True)
             np.fill_diagonal(dist, np.inf)
             neigh_ind = np.argpartition(dist, k-1, axis=1)
@@ -274,8 +298,8 @@ class LargeMarginNearestNeighbor:
         imp1, imp2, dist = [], [], []
         self.logger.debug('Now computing impostor vectors...')
         for label in self.labels[:-1]:
-            idx_in, = np.where(np.equal(self.label_idx, label))
-            idx_out, = np.where(np.greater(self.label_idx, label))
+            idx_in, = np.where(np.equal(self.label_ind, label))
+            idx_out, = np.where(np.greater(self.label_ind, label))
             # Permute the indices (experimental)
             # idx_in = np.random.permutation(idx_in)
             # idx_out = np.random.permutation(idx_out)
@@ -324,8 +348,8 @@ class LargeMarginNearestNeighbor:
         self.logger.debug('Now computing impostor vectors...')
         for label in self.labels[:-1]:
             imp1, imp2 = [], []
-            idx_in, = np.where(np.equal(self.label_idx, label))
-            idx_out, = np.where(np.greater(self.label_idx, label))
+            idx_in, = np.where(np.equal(self.label_ind, label))
+            idx_out, = np.where(np.greater(self.label_ind, label))
 
             # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
             self.logger.debug('Impostor classes {} to class {}..'.
@@ -434,7 +458,6 @@ class LargeMarginNearestNeighbor:
             res[chunk] = np.sum(np.square(X[a[chunk]] - X[b[chunk]]), axis=1)
         return res
 
-    # @staticmethod
     def _unique_pairs(self, i, j, n):
         """Find the unique pairs contained in zip(i, j)
 
@@ -455,16 +478,10 @@ class LargeMarginNearestNeighbor:
         self.logger.debug('Found {} unique pairs out of {}.'.format(len(idx), len(h)))
         return idx
 
-    def load_stored(self, iteration):
-        """Loads a linear transformation from the temporary results directory
-
-        Args:
-          iteration (int): Load the saved linear transformation from this iteration
-
-        Returns:
-            array-like: [dxD] the saved linear transformation
-
-        """
-        filename = self.save + '_' + str(iteration) + '.npy'
-        self.L = np.load(os.path.join(self.temp_dir, filename))
-        return self.L
+    def _print_params(self):
+        print('Parameters:\n')
+        params_to_print = {'k', 'dim_out', 'max_iter', 'use_pca', 'max_constr', 'load', 'save', 'temp_dir', 'use_sparse', 'tol'}
+        for k, v in self.__dict__.items():
+            if k in params_to_print:
+                print('{:10}: {}'.format(k, v))
+        print()

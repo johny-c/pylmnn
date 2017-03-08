@@ -33,20 +33,19 @@ def main(demo='shrec14'):
     bo = cfg['bayes_opt']
     if bo.getboolean('perform'):
         # Separate training and validation set
-        test_size = bo.getfloat('test_size')
-        x_tr, xva, y_tr, yva = train_test_split(x_tr, y_tr, test_size=test_size, stratify=y_tr)
+        x_tr, x_va, y_tr, y_va = train_test_split(x_tr, y_tr, test_size=bo.getfloat('test_size'), stratify=y_tr)
 
         # Hyper-parameter tuning
         print('Searching for optimal LMNN hyper parameters...\n')
         t_bo = time()
-        params = {'log_level': logging.DEBUG}
-        k_tr, k_te, dim_out, max_iter = find_hyperparams(x_tr, y_tr, xva, yva,
-                                                         params, bo['max_trials'])
+        params = {'log_level': logging.INFO}
+        max_trials = bo.getint('max_trials', fallback=12)
+        k_tr, k_te, dim_out, max_iter = find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=max_trials)
         print('Found optimal LMNN hyper parameters for %d points in %s\n' % (len(y_tr), time() - t_bo))
 
         # Reconstruct full training set
-        x_tr = np.concatenate((x_tr, xva))
-        y_tr = np.concatenate((y_tr, yva))
+        x_tr = np.concatenate((x_tr, x_va))
+        y_tr = np.concatenate((y_tr, y_va))
     else:
         hyper_params = cfg['hyper_params']
         k_tr = hyper_params.getint('k_tr')
@@ -54,7 +53,7 @@ def main(demo='shrec14'):
         dim_out = hyper_params.getint('dim_out')
         max_iter = hyper_params.getint('max_iter')
 
-    clf = LargeMarginNearestNeighbor(k=k_tr, max_iter=max_iter, dim_out=dim_out)
+    clf = LargeMarginNearestNeighbor(k=k_tr, max_iter=max_iter, dim_out=dim_out, log_level=logging.INFO)
 
     # Train full model
     t_train = time()
@@ -68,7 +67,7 @@ def main(demo='shrec14'):
     print('Average time / function call: {:.4f} s'.format(t_train / clf.details['funcalls']))
     print('Training loss: {}'.format(clf.details['loss']))
 
-    test_knn(x_tr, y_tr, x_te, y_te, k=min(k_te, clf.params['k']))
+    test_knn(x_tr, y_tr, x_te, y_te, k=min(k_te, clf.k))
     test_knn(x_tr, y_tr, x_te, y_te, k=k_te, L=clf.L)
     plot_ba(clf.L, x_te, y_te)
 

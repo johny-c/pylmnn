@@ -48,6 +48,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
             float: the validation error obtained
 
         """
+
         hp_vec = hp_vec[0]
         k_tr = int(round(hp_vec[0]))
         k_te = int(round(hp_vec[1]))
@@ -57,20 +58,20 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
         nonlocal bo_iter
         bo_iter += 1
         print('Iteration {} of Bayesian Optimisation'.format(bo_iter))
-        print('Trying K(lmnn)={} K(knn)={} dim_out={} max_iter={} ...\n'.
-              format(k_tr, k_te, dim_out, max_iter))
+        print('Trying K(lmnn)={} K(knn)={} dim_out={} max_iter={} ...\n'.format(k_tr, k_te, dim_out, max_iter))
         lmnn_clf = LargeMarginNearestNeighbor(k=k_tr, max_iter=max_iter, dim_out=dim_out, **params)
         knn_clf = KNeighborsClassifier(n_neighbors=k_te)
 
         lmnn_clf = lmnn_clf.fit(x_tr, y_tr)
         Lx_tr = lmnn_clf.transform(x_tr)
 
+        print('Evaluating the found transformation on validation set of size {}...'.format(len(y_va)))
         knn_clf.fit(Lx_tr, y_tr)
         Lx_va = lmnn_clf.transform(x_va)
         y_pred = knn_clf.predict(Lx_va)
         val_err = np.mean(np.not_equal(y_pred, y_va))
 
-        print('\nvalidation error={:2.4f}\n'.format(val_err))
+        print('\nValidation error={:2.4f}\n'.format(val_err))
         return val_err
 
     # Parameters are discrete but treating them as continuous yields better parameters
@@ -79,7 +80,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
               {'name': 'dim_out', 'type': 'continuous', 'domain': (opt.min_dim, opt.max_dim)},
               {'name': 'max_iter', 'type': 'continuous', 'domain': (opt.min_iter, opt.max_iter)}]
 
-    bo = BayesianOptimization(f=lambda x: optimize_clf(x), domain=domain)
+    bo = BayesianOptimization(f=optimize_clf, domain=domain)
     bo.run_optimization(max_iter=opt.max_trials)
 
     hp = bo.x_opt
