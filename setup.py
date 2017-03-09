@@ -5,7 +5,7 @@ from codecs import open
 from os import path
 
 
-__version__ = '1.2.0'
+__version__ = '1.2.1'
 
 if __name__ == '__main__':
     here = path.abspath(path.dirname(__file__))

@@ -19,11 +19,12 @@ class LargeMarginNearestNeighbor:
     Licensed under the GPLv3 license (see LICENSE.txt)
 
     Args:
-        L (array_like):     [d, D] initial transformation, if None identity or pca will be used based on `use_pca` (default: None)
+        L (array_like):     [d, D] initial transformation, if None the load will be used to load a transformation from a
+                            file (default: None)
         k (int):            number of target neighbors (default: 3)
         max_iter (int):     maximum number of iterations in the optimization (default: 200)
         use_pca (bool):     whether to use pca to warm-start the linear transformation,
-                            if False, the identity is used except if `L` is not None (default: True)
+                            if False, the identity will be used (default: True)
         tol (float):        tolerance for the optimization  (default: 1e-5)
         verbose (bool):     whether to output information from the L-BFGS optimizer (default: False)
         dim_out (int):      preferred dimensionality of the inputs after the transformation,
@@ -31,15 +32,18 @@ class LargeMarginNearestNeighbor:
         max_constr (int):   maximum number of constraints to enforce per iteration (default: 10 million)
         use_sparse (bool):  whether to use a sparse matrix for the impostors storage.
                             Although using this, the distance to impostors is computed twice,
-                            this way is somewhat faster for larger datasets than using a dense matrix, where unique pairs
-                            have to be identified explicitly. (default: True)
+                            this way is somewhat faster for larger data sets than using a dense matrix, where unique
+                            pairs have to be identified explicitly. (default: True)
         load (string):      file name from which to load a linear transformation.
-                            If None, initialisation is either identity or eigenvectors from pca. (default: None)
+                            If None, either identity or pca will be used based on `use_pca`. (default: None)
         save (string):      file name prefix to save intermediate linear transformations to. After every function call,
                             it will be extended with number of function call and `.npy` file extension.
                             If None, nothing is saved. (default: None)
         temp_dir (string):  name of directory to save/load computed transformations to/from (default: 'temp_res')
         log_level (int):    level of logger verbosity (default: logging.INFO)
+
+    Class Attributes:
+        obj_count (int):    instance counter
 
     Attributes:
         targets (array_like):    [N, k], the k target neighbors of each input
@@ -47,7 +51,7 @@ class LargeMarginNearestNeighbor:
         n_funcalls (int):        counter of calls to _loss_grad
         logger (object):         logger object, responsible for printing intermediate messages/warnings/etc.
         details (dict):          statistics about the algorithm execution mainly from the L-BFGS optimizer
-        obj_count (int):         class object counter
+
     """
 
     obj_count = 0
@@ -124,6 +128,9 @@ class LargeMarginNearestNeighbor:
 
     def _init_transformer(self):
         """Initialise the linear transformation by loading from a file, applying PCA or setting to identity """
+        if self.L is not None:
+            return
+
         if self.load is not None:
             self.L = np.load(os.path.join(self.temp_dir, self.load))
             return
@@ -161,7 +168,8 @@ class LargeMarginNearestNeighbor:
         # Check data consistency and fetch_from_config label counts
         self._check_inputs(X, y)
 
-        self._print_params()
+        # Print classifier configuration
+        self._print_config()
 
         # Initialize L
         self._init_transformer()
@@ -320,7 +328,7 @@ class LargeMarginNearestNeighbor:
 
         # subsample constraints if they are too many
         if len(idx) > self.max_constr:
-            idx = np.random.choice(len(idx), self.max_constr, replace=False)
+            idx = np.random.choice(idx, self.max_constr, replace=False)
 
         imp1 = np.asarray(imp1)[idx]
         imp2 = np.asarray(imp2)[idx]
@@ -478,7 +486,7 @@ class LargeMarginNearestNeighbor:
         self.logger.debug('Found {} unique pairs out of {}.'.format(len(idx), len(h)))
         return idx
 
-    def _print_params(self):
+    def _print_config(self):
         print('Parameters:\n')
         params_to_print = {'k', 'dim_out', 'max_iter', 'use_pca', 'max_constr', 'load', 'save', 'temp_dir', 'use_sparse', 'tol'}
         for k, v in self.__dict__.items():
