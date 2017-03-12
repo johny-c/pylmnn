@@ -58,7 +58,8 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
         nonlocal bo_iter
         bo_iter += 1
         print('Iteration {} of Bayesian Optimisation'.format(bo_iter))
-        print('Trying K(lmnn)={} K(knn)={} n_features_out={} max_iter={} ...\n'.format(k_tr, k_te, dim_out, max_iter))
+        print('Trying K(lmnn)={}\tK(knn)={}\tdim_out={}\tmax_iter={} ...\n'.
+              format(k_tr, k_te, dim_out, max_iter))
         lmnn_clf = LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, **params)
         knn_clf = KNeighborsClassifier(n_neighbors=k_te)
 
@@ -77,7 +78,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     # Parameters are discrete but treating them as continuous yields better parameters
     domain = [{'name': 'k_tr', 'type': 'continuous', 'domain': (opt.min_k, opt.max_k)},
               {'name': 'k_te', 'type': 'continuous', 'domain': (opt.min_k, opt.max_k)},
-              {'name': 'n_features_out', 'type': 'continuous', 'domain': (opt.min_dim, opt.max_dim)},
+              {'name': 'dim_out', 'type': 'continuous', 'domain': (opt.min_dim, opt.max_dim)},
               {'name': 'max_iter', 'type': 'continuous', 'domain': (opt.min_iter, opt.max_iter)}]
 
     bo = BayesianOptimization(f=optimize_clf, domain=domain)
