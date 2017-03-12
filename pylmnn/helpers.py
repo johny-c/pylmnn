@@ -9,12 +9,18 @@ from sklearn.neighbors import KNeighborsClassifier
 def pca_transform(X, var_ratio=1):
     """
 
-    Args:
-        X (array_like):     [n_samples, n_features] inputs
-        var_ratio (float):  the variance ratio to be captured
+    Parameters
+    ----------
+    X : array_like
+        An array with shape (n_samples, n_features)
+    var_ratio : float
+        The variance ratio to be captured (Default value = 1)
 
-    Returns:
-        array_like:         [n_samples, n_components] inputs projected onto n_components principal components
+    Returns
+    -------
+    array_like
+        An array with shape (n_samples, n_components) which is the inputs projected onto `n_components` principal
+        components
 
     """
 
@@ -37,18 +43,27 @@ def pca_transform(X, var_ratio=1):
 
 
 def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors, L=None):
-    """Compute the n_neighbors-nearest neighbor accuracy
+    """Compute the k-nearest neighbor accuracy
 
-    Args:
-        x_tr (array_like):  [n_samples, n_features] training inputs
-        y_tr (array_like):  [n_samples,] training labels
-        x_te (array_like):  [m_samples, n_features] testing inputs
-        y_te (array_like):  [m_samples,] testing labels (ground truth)
-        n_neighbors (int):            the number of neighbors to consider
-        L (array_like):     the learned linear transformation (default: None)
+    Parameters
+    ----------
+    x_tr : array_like
+        An array of training samples with shape (n_samples, n_features).
+    y_tr : array_like
+        An array of training labels with shape (n_samples,).
+    x_te : array_like
+        An array of testing samples with shape (m_samples, n_features).
+    y_te : array_like
+        An array of testing labels with shape (m_samples,) - the ground truth.
+    n_neighbors : int
+        the number of neighbors to consider
+    L : array_like
+        the learned linear transformation (default: None)
 
-    Returns:
-        float:    the n_neighbors-nn accuracy
+    Returns
+    -------
+    float
+        the k-nn accuracy
 
     """
     knn_clf = KNeighborsClassifier(n_neighbors=n_neighbors)
@@ -68,13 +83,22 @@ def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors, L=None):
 def plot_comparison(L, X, y, dim_pref=2, t_sne=False):
     """Draw a scatter plot of points, colored by their labels, before and after applying a learned transformation
 
-    Args:
-        L (array_like): [n_features_out, n_features_in] the learned transformation
-        X (array_like): [n_samples, n_features_in] inputs
-        y (array_like): [n_samples,]  labels
-        dim_pref (int): the preferred number of dimensions to plot (default: 2)
-        t_sne (bool):   whether to use t-SNE to produce the plot or just use the first two dimensions
-                        of the inputs (default: False)
+    Parameters
+    ----------
+    L : array_like
+        The learned transformation in an array with shape (n_features_out, n_features_in).
+    X : array_like
+        An array of data samples with shape (n_samples, n_features_in).
+    y : array_like
+        An array of data labels with shape (n_samples,).
+    dim_pref : int
+        The preferred number of dimensions to plot (default: 2)
+    t_sne : bool
+        Whether to use t-SNE to produce the plot or just use the first two dimensions
+        of the inputs (default: False)
+
+    Returns
+    -------
 
     """
     if dim_pref < 2 or dim_pref > 3:

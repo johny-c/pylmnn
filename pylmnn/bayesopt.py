@@ -7,18 +7,33 @@ from .lmnn import LargeMarginNearestNeighbor
 def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     """Find the best hyperparameters for LMNN for a specified number of trials using Bayesian Optimisation
 
-    Args:
-        x_tr (array_like): [N, D], the training samples
-        y_tr (array_like): [N,], the training labels
-        x_va (array_like): [M, D], the testing samples
-        y_va (array_like): [M,], the testing samples
-        params (dict):     parameters to be passed to the LargeMarginNearestNeighbor classifier
-        max_trials (int):  maximum number of hyperparameter configurations to test (default: 12)
+    Parameters
+    ----------
 
-    Returns:
+    x_tr : array_like
+           An array of training samples with shape (n_samples, n_features)
+
+    y_tr : array_like
+           An array of training labels with shape (n_samples,)
+        
+    x_va : array_like
+           An array of validation samples with shape (m_samples, n_features)
+        
+    y_va : array_like
+           An array of validation labels with shape (m_samples,)
+        
+    params : dict
+             parameters to be passed to the LargeMarginNearestNeighbor classifier instance
+
+    max_trials : int (Default value = 12)
+
+    Returns
+    -------
+    type
         tuple:
-
+        
         (int, int, int, int) The best hyperparameters found (k_tr, k_te, n_features_out, max_iter)
+
     """
 
     unique_labels, class_sizes = np.unique(y_tr, return_counts=True)
@@ -41,11 +56,15 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     def optimize_clf(hp_vec):
         """The actual objective function with packing and unpacking of hyperparameters
 
-        Args:
-            hp_vec (array_like): Vector of hyperparameters to evaluate
+        Parameters
+        ----------
+        hp_vec : array_like
+                 Vector of hyperparameters to evaluate
 
-        Returns:
-            float: the validation error obtained
+        Returns
+        -------
+        float
+            the validation error obtained
 
         """
 

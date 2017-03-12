@@ -15,7 +15,7 @@ x_tr, x_te, y_tr, y_te = train_test_split(X, y, test_size=0.7, stratify=y, rando
 k_tr, k_te, dim_out, max_iter = 3, 1, X.shape[1], 180
 
 # Instantiate the classifier
-clf = LMNN(k=k_tr, max_iter=max_iter, dim_out=dim_out)
+clf = LMNN(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out)
 
 # Train the classifier
 clf = clf.fit(x_tr, y_tr)
