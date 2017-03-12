@@ -50,7 +50,7 @@ def main(demo='shrec14'):
         hyper_params = cfg['hyper_params']
         k_tr = hyper_params.getint('k_tr')
         k_te = hyper_params.getint('k_te')
-        dim_out = hyper_params.getint('n_features_out')
+        dim_out = hyper_params.getint('dim_out')
         max_iter = hyper_params.getint('max_iter')
 
     clf = LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, log_level=logging.INFO)
