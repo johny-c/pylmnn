@@ -12,15 +12,15 @@ def pca_transform(X, var_ratio=1):
     Parameters
     ----------
     X : array_like
-        An array with shape (n_samples, n_features)
+        An array of data samples with shape (n_samples, n_features).
     var_ratio : float
-        The variance ratio to be captured (Default value = 1)
+        The variance ratio to be captured (Default value = 1).
 
     Returns
     -------
     array_like
-        An array with shape (n_samples, n_components) which is the inputs projected onto `n_components` principal
-        components
+        An array with shape (n_samples, n_components) which is the input samples projected onto `n_components`
+        principal components.
 
     """
 
@@ -56,14 +56,14 @@ def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors, L=None):
     y_te : array_like
         An array of testing labels with shape (m_samples,) - the ground truth.
     n_neighbors : int
-        the number of neighbors to consider
+        The number of neighbors to consider.
     L : array_like
-        the learned linear transformation (default: None)
+        A learned linear transformation (default: None).
 
     Returns
     -------
     float
-        the k-nn accuracy
+        The k-nn accuracy.
 
     """
     knn_clf = KNeighborsClassifier(n_neighbors=n_neighbors)
@@ -92,13 +92,10 @@ def plot_comparison(L, X, y, dim_pref=2, t_sne=False):
     y : array_like
         An array of data labels with shape (n_samples,).
     dim_pref : int
-        The preferred number of dimensions to plot (default: 2)
+        The preferred number of dimensions to plot (default: 2).
     t_sne : bool
         Whether to use t-SNE to produce the plot or just use the first two dimensions
-        of the inputs (default: False)
-
-    Returns
-    -------
+        of the inputs (default: False).
 
     """
     if dim_pref < 2 or dim_pref > 3:

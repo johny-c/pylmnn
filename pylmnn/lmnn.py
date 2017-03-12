@@ -37,29 +37,28 @@ class LargeMarginNearestNeighbor:
         Preferred dimensionality of the inputs after the transformation.
         If None it is inferred from `use_pca` and `L`.(default: None)
     max_constr : int
-        Maximum number of constraints to enforce per iteration. (default: 10 million)
+        Maximum number of constraints to enforce per iteration (default: 10 million).
     use_sparse : bool
         Whether to use a sparse or a dense matrix for the impostor-pairs storage. Using a sparse matrix,
         the distance to impostors is computed twice, but it is somewhat faster for
         larger data sets than using a dense matrix. With a dense matrix, the unique impostor pairs have to be identified
-        explicitly. (default: True)
+        explicitly (default: True).
     load : string
         A file path from which to load a linear transformation.
-        If None, either identity or pca will be used based on `use_pca`. (default: None)
+        If None, either identity or pca will be used based on `use_pca` (default: None).
     save : string
         A file path prefix to save intermediate linear transformations to. After every function
         call, it will be extended with the function call number and the `.npy` file
-        extension. If None, nothing will be saved. (default: None)
+        extension. If None, nothing will be saved (default: None).
     log_level : int
-        The level of logger verbosity (default: logging.INFO)
+        The level of logger verbosity (default: logging.INFO).
     random_state : int
-        A random state for reproducibility (default: 42)
-        Class Attributes:
+        A seed to create a random state for reproducibility (default: 42).
+
+    Class Attributes
+    ----------------
     obj_count : int
         An instance counter
-
-    Returns
-    -------
 
     """
 
@@ -83,6 +82,7 @@ class LargeMarginNearestNeighbor:
         self.load = load
         self.save = save
         self.random_state = random_state
+        np.random.seed(random_state)
 
         # Attributes
         self.targets = None
@@ -102,7 +102,7 @@ class LargeMarginNearestNeighbor:
         self.logger.addHandler(stream_handler)
 
     def transform(self, X=None):
-        """Applies the learned transformation to the inputs
+        """Applies the learned transformation to the inputs.
 
         Parameters
         ----------
@@ -120,7 +120,7 @@ class LargeMarginNearestNeighbor:
         return X @ self.L.T
 
     def _check_inputs(self, X, y):
-        """Check the input features and labels for consistency
+        """Check the input features and labels for consistency.
 
         Parameters
         ----------
@@ -129,9 +129,6 @@ class LargeMarginNearestNeighbor:
             n_features_in
         y : array_like
             An array of data labels with shape (n_samples,).
-
-        Returns
-        -------
 
         """
         assert len(y) == X.shape[0], "Number of labels ({}) does not match the number of " \
@@ -147,7 +144,7 @@ class LargeMarginNearestNeighbor:
         self.X = X
 
     def _init_transformer(self):
-        """Initialise the linear transformation by loading from a file, applying PCA or setting to identity"""
+        """Initialise the linear transformation by loading from a file, applying PCA or setting to identity."""
         if self.L is not None:
             return
 
@@ -232,18 +229,18 @@ class LargeMarginNearestNeighbor:
         return self
 
     def _loss_grad(self, L):
-        """Compute the loss under a given L and the loss gradient w.r.t. L
+        """Compute the loss under a given linear transformation `L` and the loss gradient w.r.t. `L`.
 
         Parameters
         ----------
         L : array_like
-            The current (flattened) linear transformation (n_features_out x n_features_in,).
+            The current (flattened) linear transformation with shape (n_features_out x n_features_in,).
 
         Returns
         -------
         tuple
             float: The new loss.
-            array_like: The new (flattened) gradient (n_features_out x n_features_in,).
+            array_like: The new (flattened) gradient with shape (n_features_out x n_features_in,).
 
         """
         n_samples, n_features_in = self.X.shape
@@ -295,10 +292,7 @@ class LargeMarginNearestNeighbor:
         return loss, df.flatten()
 
     def _select_targets(self):
-        """Compute target neighbors, that stay fixed during training
-
-        Parameters
-        ----------
+        """Compute the target neighbors, that stay fixed during training.
 
         Returns
         -------
@@ -322,21 +316,25 @@ class LargeMarginNearestNeighbor:
         return target_neighbors
 
     def _find_impostors(self, Lx, margin_radii):
-        """Compute all impostor pairs exactly
+        """Compute all impostor pairs exactly.
 
         Parameters
         ----------
         Lx : array_like
             An array of transformed samples with shape (n_samples, n_features_out).
         margin_radii : array_like
-            An array of distances to the farthest target neighbors + margin, with shape (n_samples,)
+            An array of distances to the farthest target neighbors + margin, with shape (n_samples,).
 
         Returns
         -------
         tuple
             
-        array_like
-            Impostor pairs and their distances
+        imp1 : array_like
+            An array of sample indices with shape (n_impostors,).
+        imp2 : array_like
+            An array of sample indices that violate a margin with shape (n_impostors,).
+        dist : array_like
+            An array of pairwise distances of (imp1, imp2) with shape (n_impostors,).
 
         """
         n_samples = self.X.shape[0]
@@ -387,11 +385,11 @@ class LargeMarginNearestNeighbor:
         tuple
             
         imp1 : array_like
-            (n_impostors,) sample indices
+            An array of sample indices with shape (n_impostors,).
         imp2 : array_like
-            (n_impostors,) indices of impostors (samples that violate the margin) to imp1
+            An array of sample indices that violate a margin with shape (n_impostors,).
         dist : array_like
-            (n_impostors,) pairwise distances of (imp1, imp2)
+            An array of pairwise distances of (imp1, imp2) with shape (n_impostors,).
 
         """
         n_samples = self.X.shape[0]
@@ -449,7 +447,10 @@ class LargeMarginNearestNeighbor:
         type
             tuple:
             
-            (array_like, array_like) indices of impostor pairs
+        imp1 : array_like
+            An array of sample indices with shape (n_impostors,).
+        imp2 : array_like
+            An array of sample indices that violate a margin with shape (n_impostors,).
 
         """
         n, m = len(t1), len(t2)
@@ -543,7 +544,7 @@ class LargeMarginNearestNeighbor:
         ind_b : list
             A list with indices of impostor samples of length m.
         n_samples : int
-            The total number of samples (= maximum sample index + 1)
+            The total number of samples (= maximum sample index + 1).
 
         Returns
         -------
@@ -560,7 +561,7 @@ class LargeMarginNearestNeighbor:
         return ind_u
 
     def _print_config(self):
-        """Print some parts of the classifier configuration that a user is likely to be interested in. """
+        """Print some parts of the classifier configuration that a user is likely to be interested in."""
         print('Parameters:\n')
         params_to_print = {'n_neighbors', 'n_features_out', 'max_iter', 'use_pca', 'max_constr', 'load', 'save', 'use_sparse', 'tol'}
         for k, v in self.__dict__.items():

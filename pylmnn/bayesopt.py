@@ -5,34 +5,34 @@ from .lmnn import LargeMarginNearestNeighbor
 
 
 def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
-    """Find the best hyperparameters for LMNN for a specified number of trials using Bayesian Optimisation
+    """Find the best hyperparameters for LMNN for a specified number of trials using Bayesian Optimisation.
 
     Parameters
     ----------
 
     x_tr : array_like
-           An array of training samples with shape (n_samples, n_features)
+           An array of training samples with shape (n_samples, n_features).
 
     y_tr : array_like
-           An array of training labels with shape (n_samples,)
+           An array of training labels with shape (n_samples,).
         
     x_va : array_like
-           An array of validation samples with shape (m_samples, n_features)
+           An array of validation samples with shape (m_samples, n_features).
         
     y_va : array_like
-           An array of validation labels with shape (m_samples,)
+           An array of validation labels with shape (m_samples,).
         
     params : dict
-             parameters to be passed to the LargeMarginNearestNeighbor classifier instance
+             A dictionary of parameters to be passed to the LargeMarginNearestNeighbor classifier instance.
 
-    max_trials : int (Default value = 12)
+    max_trials : int
+            Maximum number of parameter vectors to evaluate (Default value = 12).
 
     Returns
     -------
     type
         tuple:
-        
-        (int, int, int, int) The best hyperparameters found (k_tr, k_te, n_features_out, max_iter)
+        (int, int, int, int) The best hyperparameters found (k_tr, k_te, n_features_out, max_iter).
 
     """
 
@@ -54,17 +54,17 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     bo_iter = 0
 
     def optimize_clf(hp_vec):
-        """The actual objective function with packing and unpacking of hyperparameters
+        """The actual objective function with packing and unpacking of hyperparameters.
 
         Parameters
         ----------
         hp_vec : array_like
-                 Vector of hyperparameters to evaluate
+                 Vector of hyperparameters to evaluate.
 
         Returns
         -------
         float
-            the validation error obtained
+            The validation error obtained.
 
         """
 
