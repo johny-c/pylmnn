@@ -55,14 +55,15 @@ class LargeMarginNearestNeighbor:
     random_state : int
         A seed to create a random state for reproducibility (default: 42).
 
+
     Class Attributes
     ----------------
-    obj_count : int
+    _obj_count : int
         An instance counter
 
     """
 
-    obj_count = 0
+    _obj_count = 0
 
     def __init__(self, L=None, n_neighbors=3, max_iter=200, use_pca=True, tol=1e-5, verbose=False,
                  n_features_out=None, max_constr=int(1e7), use_sparse=True, load=None, save=None,
@@ -90,11 +91,11 @@ class LargeMarginNearestNeighbor:
         self.n_funcalls = 0
 
         # Setup logger
-        LargeMarginNearestNeighbor.obj_count += 1
-        if LargeMarginNearestNeighbor.obj_count == 1:
+        LargeMarginNearestNeighbor._obj_count += 1
+        if LargeMarginNearestNeighbor._obj_count == 1:
             self.logger = logging.getLogger(__name__)
         else:
-            self.logger = logging.getLogger(__name__ + '(' + str(LargeMarginNearestNeighbor.obj_count) + ')')
+            self.logger = logging.getLogger(__name__ + '(' + str(LargeMarginNearestNeighbor._obj_count) + ')')
         self.logger.setLevel(log_level)
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         formatter = logging.Formatter(fmt='%(asctime)s  %(name)s - %(levelname)s : %(message)s')
@@ -382,7 +383,7 @@ class LargeMarginNearestNeighbor:
 
         Returns
         -------
-        tuple
+        tuple: (array_like, array_like, array_like)
             
         imp1 : array_like
             An array of sample indices with shape (n_impostors,).
@@ -444,13 +445,14 @@ class LargeMarginNearestNeighbor:
 
         Returns
         -------
-        type
-            tuple:
+        tuple: (array_like, array_like, [array_like])
             
-        imp1 : array_like
-            An array of sample indices with shape (n_impostors,).
-        imp2 : array_like
-            An array of sample indices that violate a margin with shape (n_impostors,).
+            imp1 : array_like
+                An array of sample indices with shape (n_impostors,).
+            imp2 : array_like
+                An array of sample indices that violate a margin with shape (n_impostors,).
+            dist : array_like, optional
+                An array of pairwise distances of (imp1, imp2) with shape (n_impostors,).
 
         """
         n, m = len(t1), len(t2)

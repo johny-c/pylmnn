@@ -30,8 +30,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
 
     Returns
     -------
-    type
-        tuple:
+    tuple:
         (int, int, int, int) The best hyperparameters found (k_tr, k_te, n_features_out, max_iter).
 
     """
