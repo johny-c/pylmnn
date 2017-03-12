@@ -50,10 +50,10 @@ def main(demo='shrec14'):
         hyper_params = cfg['hyper_params']
         k_tr = hyper_params.getint('k_tr')
         k_te = hyper_params.getint('k_te')
-        dim_out = hyper_params.getint('dim_out')
+        dim_out = hyper_params.getint('n_features_out')
         max_iter = hyper_params.getint('max_iter')
 
-    clf = LargeMarginNearestNeighbor(k=k_tr, max_iter=max_iter, dim_out=dim_out, log_level=logging.INFO)
+    clf = LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, log_level=logging.INFO)
 
     # Train full model
     t_train = time()
@@ -67,8 +67,8 @@ def main(demo='shrec14'):
     print('Average time / function call: {:.4f} s'.format(t_train / clf.details['funcalls']))
     print('Training loss: {}'.format(clf.details['loss']))
 
-    test_knn(x_tr, y_tr, x_te, y_te, k=min(k_te, clf.k))
-    test_knn(x_tr, y_tr, x_te, y_te, k=k_te, L=clf.L)
+    test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=min(k_te, clf.n_neighbors))
+    test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=k_te, L=clf.L)
     plot_comparison(clf.L, x_te, y_te, dim_pref=3)
 
 

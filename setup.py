@@ -5,7 +5,7 @@ from codecs import open
 from os import path
 
 
-__version__ = '1.2.2'
+__version__ = '1.2.3'
 
 if __name__ == '__main__':
     here = path.abspath(path.dirname(__file__))
@@ -43,5 +43,8 @@ if __name__ == '__main__':
                           'scipy>=0.18',
                           'scikit_learn>=0.18',
                           'GPyOpt>=1.0.3',
-                          'matplotlib>=1.5.3']
+                          'matplotlib>=1.5.3'],
+
+        test_suite='nose.collector',
+        tests_require=['nose', 'nose-cover3']
     )

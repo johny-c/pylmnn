@@ -18,7 +18,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     Returns:
         tuple:
 
-        (int, int, int, int) The best hyperparameters found (k_tr, k_te, dim_out, max_iter)
+        (int, int, int, int) The best hyperparameters found (k_tr, k_te, n_features_out, max_iter)
     """
 
     unique_labels, class_sizes = np.unique(y_tr, return_counts=True)
@@ -58,8 +58,8 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
         nonlocal bo_iter
         bo_iter += 1
         print('Iteration {} of Bayesian Optimisation'.format(bo_iter))
-        print('Trying K(lmnn)={} K(knn)={} dim_out={} max_iter={} ...\n'.format(k_tr, k_te, dim_out, max_iter))
-        lmnn_clf = LargeMarginNearestNeighbor(k=k_tr, max_iter=max_iter, dim_out=dim_out, **params)
+        print('Trying K(lmnn)={} K(knn)={} n_features_out={} max_iter={} ...\n'.format(k_tr, k_te, dim_out, max_iter))
+        lmnn_clf = LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, **params)
         knn_clf = KNeighborsClassifier(n_neighbors=k_te)
 
         lmnn_clf = lmnn_clf.fit(x_tr, y_tr)
@@ -77,7 +77,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     # Parameters are discrete but treating them as continuous yields better parameters
     domain = [{'name': 'k_tr', 'type': 'continuous', 'domain': (opt.min_k, opt.max_k)},
               {'name': 'k_te', 'type': 'continuous', 'domain': (opt.min_k, opt.max_k)},
-              {'name': 'dim_out', 'type': 'continuous', 'domain': (opt.min_dim, opt.max_dim)},
+              {'name': 'n_features_out', 'type': 'continuous', 'domain': (opt.min_dim, opt.max_dim)},
               {'name': 'max_iter', 'type': 'continuous', 'domain': (opt.min_iter, opt.max_iter)}]
 
     bo = BayesianOptimization(f=optimize_clf, domain=domain)
@@ -89,7 +89,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     k_te_bo = int(round(hp[1]))
     dim_out_bo = int(np.ceil(hp[2]))
     max_iter_bo = int(np.ceil(hp[3]))
-    print('Best parameters: K(lmnn)={} K(knn)={} dim_out={} max_iter={}\n'.
+    print('Best parameters: K(lmnn)={} K(knn)={} n_features_out={} max_iter={}\n'.
           format(k_tr_bo, k_te_bo, dim_out_bo, max_iter_bo))
 
     return k_tr_bo, k_te_bo, dim_out_bo, max_iter_bo
