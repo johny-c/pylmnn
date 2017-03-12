@@ -19,46 +19,53 @@ class LargeMarginNearestNeighbor:
     Licensed under the GPLv3 license (see LICENSE.txt)
 
     Args:
-        L (array_like):     [d, D] initial transformation, if None the load will be used to load a transformation from a
-                            file (default: None)
+        L (array_like):     [d, D] initial transformation. If None `load` will be used to load a
+                            transformation from a file. (default: None)
         k (int):            number of target neighbors (default: 3)
         max_iter (int):     maximum number of iterations in the optimization (default: 200)
-        use_pca (bool):     whether to use pca to warm-start the linear transformation,
-                            if False, the identity will be used (default: True)
+        use_pca (bool):     whether to use pca to warm-start the linear transformation.
+                            If False, the identity will be used. (default: True)
         tol (float):        tolerance for the optimization  (default: 1e-5)
-        verbose (bool):     whether to output information from the L-BFGS optimizer (default: False)
+        verbose (bool):     whether to output information from the L-BFGS optimizer. (default:
+                            False)
         dim_out (int):      preferred dimensionality of the inputs after the transformation,
-                            if None it is inferred from use_pca and L (default: None)
-        max_constr (int):   maximum number of constraints to enforce per iteration (default: 10 million)
-        use_sparse (bool):  whether to use a sparse matrix for the impostors storage.
-                            Although using this, the distance to impostors is computed twice,
-                            this way is somewhat faster for larger data sets than using a dense matrix, where unique
-                            pairs have to be identified explicitly. (default: True)
-        load (string):      file name from which to load a linear transformation.
-                            If None, either identity or pca will be used based on `use_pca`. (default: None)
-        save (string):      file name prefix to save intermediate linear transformations to. After every function call,
-                            it will be extended with number of function call and `.npy` file extension.
-                            If None, nothing is saved. (default: None)
-        temp_dir (string):  name of directory to save/load computed transformations to/from (default: 'temp_res')
+                            if None it is inferred from `use_pca` and `L`.(default: None)
+        max_constr (int):   maximum number of constraints to enforce per iteration. (default: 10
+                            million)
+        use_sparse (bool):  whether to use a sparse matrix for the impostor-pairs storage.
+                            By using this, the distance to impostors is computed twice, but
+                            this way is somewhat faster for larger data sets than using a dense
+                            matrix, where unique pairs have to be identified explicitly. (
+                            default: True)
+        load (string):      file path from which to load a linear transformation.
+                            If None, either identity or pca will be used based on `use_pca`.
+                            (default: None)
+        save (string):      file path prefix to save intermediate linear transformations to. After
+                            every function call, it will be extended with the function call
+                            number and `.npy` file extension. If None, nothing will be saved. (
+                            default: None)
         log_level (int):    level of logger verbosity (default: logging.INFO)
+
+        random_state(int):  random state for reproducibility
 
     Class Attributes:
         obj_count (int):    instance counter
 
     Attributes:
-        targets (array_like):    [N, k], the k target neighbors of each input
-        dfG (array_like):        [d, D], the gradient component from target neighbors (computed once)
-        n_funcalls (int):        counter of calls to _loss_grad
-        logger (object):         logger object, responsible for printing intermediate messages/warnings/etc.
-        details (dict):          statistics about the algorithm execution mainly from the L-BFGS optimizer
+        targets (array_like):   [N, k], the k target neighbors of each input
+        dfG (array_like):       [d, D], the gradient component from target neighbors (computed once)
+        n_funcalls (int):       counter of calls to _loss_grad
+        logger (object):        logger object, responsible for printing intermediate messages,
+                                warnings, etc.
+        details (dict):         statistics about the algorithm execution mainly from the L-BFGS optimizer
 
     """
 
     obj_count = 0
 
     def __init__(self, L=None, k=3, max_iter=200, use_pca=True, tol=1e-5, verbose=False,
-                 dim_out=None, max_constr=int(1e7), use_sparse=True, load=None, save=None, temp_dir='temp_res',
-                 log_level=logging.INFO):
+                 dim_out=None, max_constr=int(1e7), use_sparse=True, load=None, save=None,
+                 log_level=logging.INFO, random_state=42):
 
         # Parameters
         self.L = L
@@ -73,7 +80,7 @@ class LargeMarginNearestNeighbor:
         self.use_sparse = use_sparse
         self.load = load
         self.save = save
-        self.temp_dir = temp_dir
+        self.random_state = random_state
 
         # Attributes
         self.targets = None
@@ -132,7 +139,7 @@ class LargeMarginNearestNeighbor:
             return
 
         if self.load is not None:
-            self.L = np.load(os.path.join(self.temp_dir, self.load))
+            self.L = np.load(self.load)
             return
 
         if self.use_pca:
@@ -164,7 +171,6 @@ class LargeMarginNearestNeighbor:
 
         """
 
-
         # Check data consistency and fetch_from_config label counts
         self._check_inputs(X, y)
 
@@ -184,23 +190,25 @@ class LargeMarginNearestNeighbor:
         rows = np.repeat(np.arange(N), self.k)  # 0 0 0 1 1 1 2 2 2 ... (n-1) (n-1) (n-1) with k=3
         cols = self.targets.flatten()
         target_neighbors = sparse.csr_matrix((np.ones(N*self.k), (rows, cols)), shape=(N, N))
-        self.dfG = self._SODWsp(X, target_neighbors)
+        self.dfG = self._sum_outer_products(X, target_neighbors)
 
         # Define optimization problem
-        lmfun = lambda x: self._loss_grad(x)
         disp = 1 if self.verbose else None
         self.logger.info('Now optimizing...')
         self.n_funcalls = 0
         if self.save is not None:
-            os.mkdir(self.temp_dir) if not os.path.exists(self.temp_dir) else None
-            filename = self.save + '_' + str(self.n_funcalls) + '.npy'
-            np.save(os.path.join(self.temp_dir, filename), self.L)
+            save_dir, save_file = os.path.split(self.save)
+            os.mkdir(save_dir) if not os.path.exists(save_dir) else None
+            save_file = self.save + '_' + str(self.n_funcalls)
+            np.save(save_file, self.L)
 
-        L, loss, det = optimize.fmin_l_bfgs_b(func=lmfun, x0=self.L, bounds=None, m=100, pgtol=self.tol,
-                                              maxfun=500*self.max_iter, maxiter=self.max_iter, disp=disp)
-        self.details = det
-        self.details['loss'] = loss
+        L, loss, details = optimize.fmin_l_bfgs_b(func=self._loss_grad, x0=self.L, bounds=None,
+                                                  m=100, pgtol=self.tol, maxfun=500*self.max_iter,
+                                                  maxiter=self.max_iter, disp=disp)
+
         self.L = L.reshape(L.size // D, D)
+        self.details = details
+        self.details['loss'] = loss
 
         return self
 
@@ -223,8 +231,8 @@ class LargeMarginNearestNeighbor:
         self.n_funcalls += 1
         self.logger.info('Function call {}'.format(self.n_funcalls))
         if self.save is not None:
-            filename = self.save + '_' + str(self.n_funcalls) + '.npy'
-            np.save(os.path.join(self.temp_dir, filename), self.L)
+            save_file = self.save + '_' + str(self.n_funcalls)
+            np.save(save_file, self.L)
         Lx = self.transform()
 
         # Compute distances to target neighbors under L (plus margin)
@@ -258,7 +266,7 @@ class LargeMarginNearestNeighbor:
             A0 = A0 - A1 - A2 + sparse.csr_matrix((vals, (range(N), self.targets[:, nnid])), (N, N))
             loss = loss + np.sum(loss1 ** 2) + np.sum(loss2 ** 2)
 
-        sum_outer_prods = self._SODWsp(self.X, A0, check=True)
+        sum_outer_prods = self._sum_outer_products(self.X, A0, check=True)
         df = self.L @ (self.dfG + sum_outer_prods)
         df *= 2
         loss = loss + (self.dfG * (self.L.T @ self.L)).sum()
@@ -421,7 +429,7 @@ class LargeMarginNearestNeighbor:
             return imp1, imp2
 
     @staticmethod
-    def _SODWsp(x, weights, check=False):
+    def _sum_outer_products(x, weights, check=False):
         """Computes the sum of weighted outer products using a sparse weights matrix
 
         Args:

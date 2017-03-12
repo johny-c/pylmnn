@@ -1,5 +1,5 @@
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D  # Needed for projection='3d'
 import numpy as np
 import numpy.linalg as LA
 from sklearn import manifold
@@ -64,7 +64,7 @@ def test_knn(x_tr, y_tr, x_te, y_te, k, L=None):
     return acc
 
 
-def plot_ba(L, x, y, dim_pref=2, t_sne=False):
+def plot_comparison(L, x, y, dim_pref=2, t_sne=False):
     """Draw a scatter plot of points, colored by their labels, before and after applying a learned transformation
 
     Args:

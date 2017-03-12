@@ -6,7 +6,7 @@ from configparser import ConfigParser
 
 from pylmnn.bayesopt import find_hyperparams
 from pylmnn.lmnn import LargeMarginNearestNeighbor
-from pylmnn.helpers import test_knn, plot_ba, pca_transform
+from pylmnn.helpers import test_knn, plot_comparison, pca_transform
 
 from data_fetch import fetch_from_config
 
@@ -69,7 +69,7 @@ def main(demo='shrec14'):
 
     test_knn(x_tr, y_tr, x_te, y_te, k=min(k_te, clf.k))
     test_knn(x_tr, y_tr, x_te, y_te, k=k_te, L=clf.L)
-    plot_ba(clf.L, x_te, y_te)
+    plot_comparison(clf.L, x_te, y_te, dim_pref=3)
 
 
 if __name__ == '__main__':

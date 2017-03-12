@@ -39,7 +39,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     bo_iter = 0
 
     def optimize_clf(hp_vec):
-        """
+        """The actual objective function with packing and unpacking of hyperparameters
 
         Args:
             hp_vec (array_like): Vector of hyperparameters to evaluate
@@ -91,4 +91,5 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
     max_iter_bo = int(np.ceil(hp[3]))
     print('Best parameters: K(lmnn)={} K(knn)={} dim_out={} max_iter={}\n'.
           format(k_tr_bo, k_te_bo, dim_out_bo, max_iter_bo))
+
     return k_tr_bo, k_te_bo, dim_out_bo, max_iter_bo

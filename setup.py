@@ -34,6 +34,7 @@ if __name__ == '__main__':
                     'Operating System :: POSIX :: Linux',
                     'Programming Language :: Python :: 3',
                     'Programming Language :: Python :: 3.5',
+                    'Programming Language :: Python :: 3.6',
                     'Topic :: Scientific/Engineering :: Artificial Intelligence'],
 
         packages=find_packages(exclude=['contrib', 'docs', 'tests']),

@@ -1,7 +1,7 @@
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_mldata
 from pylmnn.lmnn import LargeMarginNearestNeighbor as LMNN
-from pylmnn.helpers import test_knn, plot_ba
+from pylmnn.helpers import test_knn, plot_comparison
 
 
 # Load a data set
@@ -24,4 +24,4 @@ clf = clf.fit(x_tr, y_tr)
 test_acc = test_knn(x_tr, y_tr, x_te, y_te, k=k_te, L=clf.L)
 
 # Draw a comparison plot of the test data before and after applying the learned transformation
-plot_ba(clf.L, x_te, y_te, dim_pref=3)
+plot_comparison(clf.L, x_te, y_te, dim_pref=3)
