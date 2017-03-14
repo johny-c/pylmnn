@@ -76,8 +76,7 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
         nonlocal bo_iter
         bo_iter += 1
         print('Iteration {} of Bayesian Optimisation'.format(bo_iter))
-        print('Trying K(lmnn)={}\tK(knn)={}\tdim_out={}\tmax_iter={} ...\n'.
-              format(k_tr, k_te, dim_out, max_iter))
+        print('Trying K(lmnn)={}\tK(knn)={}\tdim_out={}\tmax_iter={} ...\n'.format(k_tr, k_te, dim_out, max_iter))
         lmnn_clf = LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, **params)
         knn_clf = KNeighborsClassifier(n_neighbors=k_te)
 

@@ -1,11 +1,13 @@
 from sklearn.model_selection import train_test_split
-from sklearn.datasets import fetch_mldata
+from sklearn.datasets import load_iris
+
 from pylmnn.lmnn import LargeMarginNearestNeighbor as LMNN
-from pylmnn.helpers import test_knn, plot_comparison
+from pylmnn.helpers import test_knn
+from pylmnn.plots import plot_comparison
 
 
 # Load a data set
-dataset = fetch_mldata('iris')
+dataset = load_iris()
 X, y = dataset.data, dataset.target
 
 # Split in training and testing set

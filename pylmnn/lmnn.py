@@ -2,8 +2,10 @@ import numpy as np
 from numpy import linalg as LA
 from scipy import sparse, optimize
 from sklearn.metrics.pairwise import euclidean_distances
-from sklearn.utils import gen_batches
+from sklearn.utils import gen_batches, check_random_state, check_X_y
 import logging, sys, os
+
+from .helpers import unique_pairs, pairs_distances_batch, sum_outer_products
 
 
 class LargeMarginNearestNeighbor:
@@ -31,8 +33,6 @@ class LargeMarginNearestNeighbor:
         If False, the identity will be used. (default: True)
     tol : float
         Tolerance for the optimization  (default: 1e-5)
-    verbose : bool
-        Whether to output information from the L-BFGS optimizer. (default: False)
     n_features_out : int
         Preferred dimensionality of the inputs after the transformation.
         If None it is inferred from `use_pca` and `L`.(default: None)
@@ -50,11 +50,31 @@ class LargeMarginNearestNeighbor:
         A file path prefix to save intermediate linear transformations to. After every function
         call, it will be extended with the function call number and the `.npy` file
         extension. If None, nothing will be saved (default: None).
-    log_level : int
-        The level of logger verbosity (default: logging.INFO).
+    verbose : int
+        The level of logger verbosity. Can take values from 0 to 4 inclusive (default: 1).
+        0: Only basic information will be printed.
+        1: Information from the classifier will be logged.
+        2: Information from the classifier and debugging information will be logged.
+        3: Information from the classifier and the L-BFGS optimizer will be logged.
+        4: Information from the classifier and the L-BFGS optimizer and debugging information will be logged.
     random_state : int
-        A seed to create a random state for reproducibility (default: 42).
+        A seed for reproducibility of random state  (default: None).
 
+    Attributes
+    ----------
+    X : array_like
+        An array of input samples with shape (n_samples, n_features_in).
+    y : array_like
+        An array of input labels with shape (n_samples,).
+    targets : array_like
+        An array of target neighbors for each sample with shape (n_samples, n_neighbors).
+    grad_static : array_like
+        An array of the gradient component caused by target neighbors, that stays fixed throughout the algorithm with
+        shape (n_features_in, n_features_in).
+    n_funcalls : int
+        The number of times the optimiser computes the loss and the gradient.
+    name : str
+        A name for the instance based on the current number of existing instances.
 
     Class Attributes
     ----------------
@@ -65,42 +85,41 @@ class LargeMarginNearestNeighbor:
 
     _obj_count = 0
 
-    def __init__(self, L=None, n_neighbors=3, max_iter=200, use_pca=True, tol=1e-5, verbose=False,
-                 n_features_out=None, max_constr=int(1e7), use_sparse=True, load=None, save=None,
-                 log_level=logging.INFO, random_state=42):
+    def __init__(self, L=None, n_neighbors=3, n_features_out=None, max_iter=200, tol=1e-5, use_pca=True,
+                 max_constr=int(1e7), use_sparse=True, load=None, save=None, verbose=1, random_state=None):
 
         # Parameters
         self.L = L
         self.n_neighbors = n_neighbors
-        self.max_iter = max_iter
-        self.use_pca = use_pca
-        self.tol = tol
-        self.verbose = verbose
         self.n_features_out = n_features_out
-
+        self.use_pca = use_pca
         self.max_constr = max_constr
         self.use_sparse = use_sparse
         self.load = load
         self.save = save
+        self.verbose = verbose
         self.random_state = random_state
-        np.random.seed(random_state)
 
-        # Attributes
-        self.targets = None
-        self.dfG = None
-        self.n_funcalls = 0
+        # Optimizer parameters
+        self.max_iter = max_iter
+        self.tol = tol
 
-        # Setup logger
+        # Setup instance name
         LargeMarginNearestNeighbor._obj_count += 1
-        if LargeMarginNearestNeighbor._obj_count == 1:
-            self.logger = logging.getLogger(__name__)
-        else:
-            self.logger = logging.getLogger(__name__ + '(' + str(LargeMarginNearestNeighbor._obj_count) + ')')
-        self.logger.setLevel(log_level)
+        self.name = __name__ + '(' + str(LargeMarginNearestNeighbor._obj_count) + ')'
+
+    def _setup_logger(self):
+        """Instantiate a logger object for the current class instance"""
+        self.logger = logging.getLogger(self.name)
+        if self.verbose in [1,3]:
+            self.logger.setLevel(logging.INFO)
+        elif self.verbose in [2,4]:
+            self.logger.setLevel(logging.DEBUG)
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         formatter = logging.Formatter(fmt='%(asctime)s  %(name)s - %(levelname)s : %(message)s')
         stream_handler.setFormatter(formatter)
         self.logger.addHandler(stream_handler)
+
 
     def transform(self, X=None):
         """Applies the learned transformation to the inputs.
@@ -120,20 +139,16 @@ class LargeMarginNearestNeighbor:
             X = self.X
         return X @ self.L.T
 
-    def _check_inputs(self, X, y):
-        """Check the input features and labels for consistency.
+    def check_n_neighbors(self, y):
+        """Check if all classes have enough samples to query the specified number of neighbors.
 
         Parameters
         ----------
-        X : array_like
-            An array of data samples with shape (n_samples, n_features_in).
-            n_features_in
         y : array_like
-            An array of data labels with shape (n_samples,).
+            An array of labels with shape (n_samples,).
 
         """
-        assert len(y) == X.shape[0], "Number of labels ({}) does not match the number of " \
-                                          "points ({})!".format(len(y), X.shape[0])
+
         unique_labels, self.label_ind = np.unique(y, return_inverse=True)
         self.labels = np.arange(len(unique_labels))
         max_neighbors = np.bincount(self.label_ind).min() - 1
@@ -141,8 +156,6 @@ class LargeMarginNearestNeighbor:
         if self.n_neighbors > max_neighbors:
             self.logger.warning('K too high. Setting K to {}\n'.format(max_neighbors))
             self.n_neighbors = max_neighbors
-
-        self.X = X
 
     def _init_transformer(self):
         """Initialise the linear transformation by loading from a file, applying PCA or setting to identity."""
@@ -155,8 +168,7 @@ class LargeMarginNearestNeighbor:
 
         if self.use_pca:
             cc = np.cov(self.X, rowvar=False)  # Mean is removed
-            evals, evecs = LA.eigh(cc)  # Get eigenvalues in ascending order, eigenvectors in
-            # columns
+            evals, evecs = LA.eigh(cc)  # Get eigenvalues in ascending order, eigenvectors in columns
             evecs = np.fliplr(evecs)    # Flip eigenvectors to get them in descending eigenvalue order
             self.L = evecs.T            # Set L rows equal to eigenvectors
         else:
@@ -188,34 +200,44 @@ class LargeMarginNearestNeighbor:
 
         """
 
-        # Check data consistency and fetch_from_config label counts
-        self._check_inputs(X, y)
+        # Setup logger
+        self._setup_logger()
+
+        # Check inputs consistency
+        self.X, self.y = check_X_y(X, y)
+
+        # Check number of neighbors is realistic
+        self.check_n_neighbors(y)
 
         # Print classifier configuration
-        self._print_config()
+        self.print_config()
 
         # Initialize L
         self._init_transformer()
 
+        # Set seed for randomness
+        self.random_state = check_random_state(self.random_state)
+        # np.random.seed(self.random_state)
+
         # Find target neighbors (fixed)
-        self.logger.info('Finding target neighbors...')
         self.targets = self._select_targets()
 
         # Compute gradient component of target neighbors (constant)
         self.logger.info('Computing gradient component due to target neighbors...')
         n_samples, n_features_in = X.shape
-        rows = np.repeat(np.arange(n_samples), self.n_neighbors)  # 0 0 0 1 1 1 2 2 2 ... (n-1) (n-1) (n-1) with n_neighbors=3
+        rows = np.repeat(np.arange(n_samples), self.n_neighbors)  # 0 0 0 1 1 1 ... (n-1) (n-1) (n-1) with n_neighbors=3
         cols = self.targets.flatten()
-        target_neighbors = sparse.csr_matrix((np.ones(n_samples * self.n_neighbors), (rows, cols)), shape=(n_samples, n_samples))
-        self.dfG = self._sum_outer_products(X, target_neighbors)
+        targets_sparse = sparse.csr_matrix((np.ones(n_samples * self.n_neighbors), (rows, cols)), shape=(n_samples, n_samples))
+        self.grad_static = sum_outer_products(X, targets_sparse)
 
         # Define optimization problem
-        disp = 1 if self.verbose else None
-        self.logger.info('Now optimizing...')
+        disp = 1 if self.verbose in [3, 4] else None
         self.n_funcalls = 0
+        self.logger.info('Now optimizing...')
         if self.save is not None:
             save_dir, save_file = os.path.split(self.save)
-            os.mkdir(save_dir) if not os.path.exists(save_dir) else None
+            if save_dir is not '' and not os.path.exists(save_dir):
+                os.mkdir(save_dir)
             save_file = self.save + '_' + str(self.n_funcalls)
             np.save(save_file, self.L)
 
@@ -244,6 +266,7 @@ class LargeMarginNearestNeighbor:
             array_like: The new (flattened) gradient with shape (n_features_out x n_features_in,).
 
         """
+
         n_samples, n_features_in = self.X.shape
         _, k = self.targets.shape
         self.L = L.reshape(L.size // n_features_in, n_features_in)
@@ -285,10 +308,10 @@ class LargeMarginNearestNeighbor:
             A0 = A0 - A1 - A2 + sparse.csr_matrix((vals, (range(n_samples), self.targets[:, nnid])), (n_samples, n_samples))
             loss = loss + np.sum(loss1 ** 2) + np.sum(loss2 ** 2)
 
-        sum_outer_prods = self._sum_outer_products(self.X, A0, remove_zero=True)
-        df = self.L @ (self.dfG + sum_outer_prods)
+        grad_new = sum_outer_products(self.X, A0, remove_zero=True)
+        df = self.L @ (self.grad_static + grad_new)
         df *= 2
-        loss = loss + (self.dfG * (self.L.T @ self.L)).sum()
+        loss = loss + (self.grad_static * (self.L.T @ self.L)).sum()
         self.logger.debug('Loss and gradient computed!\n')
         return loss, df.flatten()
 
@@ -302,6 +325,7 @@ class LargeMarginNearestNeighbor:
 
         """
 
+        self.logger.info('Finding target neighbors...')
         target_neighbors = np.empty((self.X.shape[0], self.n_neighbors), dtype=int)
         for label in self.labels:
             ind, = np.where(np.equal(self.label_ind, label))
@@ -351,8 +375,7 @@ class LargeMarginNearestNeighbor:
             # idx_out = np.random.permutation(idx_out)
 
             # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
-            self.logger.debug('Impostor classes {} to class {}..'.
-                          format(self.labels[self.labels > label], label))
+            self.logger.debug('Impostor classes {} to class {}..'.format(self.labels[self.labels > label], label))
             ii, jj, dd = self._find_impostors_batch(Lx[idx_out], Lx[idx_in], margin_radii[idx_out],
                                                     margin_radii[idx_in], return_dist=True)
             if len(ii):
@@ -360,7 +383,8 @@ class LargeMarginNearestNeighbor:
                 imp2.extend(idx_in[jj])
                 dist.extend(dd)
 
-        idx = self._unique_pairs(imp1, imp2, n_samples)
+        idx = unique_pairs(imp1, imp2, n_samples)
+        self.logger.debug('Found {} unique pairs out of {}.'.format(len(idx), len(imp1)))
 
         # subsample constraints if they are too many
         if len(idx) > self.max_constr:
@@ -393,6 +417,7 @@ class LargeMarginNearestNeighbor:
             An array of pairwise distances of (imp1, imp2) with shape (n_impostors,).
 
         """
+
         n_samples = self.X.shape[0]
 
         # Initialize impostors matrix
@@ -404,8 +429,7 @@ class LargeMarginNearestNeighbor:
             idx_out, = np.where(np.greater(self.label_ind, label))
 
             # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
-            self.logger.debug('Impostor classes {} to class {}..'.
-                          format(self.labels[self.labels > label], label))
+            self.logger.debug('Impostor classes {} to class {}..'.format(self.labels[self.labels > label], label))
             ii, jj = self._find_impostors_batch(Lx[idx_out], Lx[idx_in], margin_radii[idx_out],
                                                 margin_radii[idx_in])
             if len(ii):
@@ -421,7 +445,7 @@ class LargeMarginNearestNeighbor:
             imp1, imp2 = imp1[idx], imp2[idx]
 
         # self.logger.debug('Computing distances to impostors under new L...')
-        dist = self._cdist(Lx, imp1, imp2)
+        dist = pairs_distances_batch(Lx, imp1, imp2)
         return imp1, imp2, dist
 
     @staticmethod
@@ -455,6 +479,7 @@ class LargeMarginNearestNeighbor:
                 An array of pairwise distances of (imp1, imp2) with shape (n_impostors,).
 
         """
+
         n, m = len(t1), len(t2)
         imp1, imp2, dist = [], [], []
         for chunk in gen_batches(n, batch_size):
@@ -477,96 +502,13 @@ class LargeMarginNearestNeighbor:
         else:
             return imp1, imp2
 
-    @staticmethod
-    def _sum_outer_products(X, weights, remove_zero=False):
-        """Computes the sum of weighted outer products using a sparse weights matrix
-
-        Parameters
-        ----------
-        X : array_like
-            An array of data samples with shape (n_samples, n_features_in).
-        weights : csr_matrix
-            An sparse matrix indicating target neighbors with shape (n_samples, n_samples).
-        remove_zero : bool
-            Whether to remove rows and columns of the symmetrized weights matrix that are zero (default: False).
-
-        Returns
-        -------
-        array_like
-            An array with the sum of all weighted outer products with shape (n_features_in, n_features_in).
-
-        """
-        weights_sym = weights + weights.T
-        if remove_zero:
-            _, cols = weights_sym.nonzero()
-            idx = np.unique(cols)
-            weights_sym = weights_sym.tocsc()[:, idx].tocsr()[idx, :]
-            X = X[idx]
-
-        n = weights_sym.shape[0]
-        diag = sparse.spdiags(weights_sym.sum(axis=0), 0, n, n)
-        laplacian = diag.tocsr() - weights_sym
-        sodw = X.T @ laplacian @ X
-        return sodw
-
-    @staticmethod
-    def _cdist(X, ind_a, ind_b, batch_size=500):
-        """Equivalent to  np.sum(np.square(x[ind_a] - x[ind_b]), axis=1)
-
-        Parameters
-        ----------
-        X : array_like
-            An array of data samples with shape (n_samples, n_features_in).
-        ind_a : array_like
-            An array of samples indices with shape (m,).
-        ind_b : array_like
-            Another array of samples indices with shape (m,).
-        batch_size :
-            Size of each chunk of X to compute distances for (default: 500)
-
-        Returns
-        -------
-        array-like
-            An array of pairwise distances with shape (m,).
-
-        """
-        n = len(ind_a)
-        res = np.zeros(n)
-        for chunk in gen_batches(n, batch_size):
-            res[chunk] = np.sum(np.square(X[ind_a[chunk]] - X[ind_b[chunk]]), axis=1)
-        return res
-
-    def _unique_pairs(self, ind_a, ind_b, n_samples):
-        """Find the unique pairs contained in zip(ind_a, ind_b)
-
-        Parameters
-        ----------
-        ind_a : list
-            A list with indices of reference samples of length m.
-        ind_b : list
-            A list with indices of impostor samples of length m.
-        n_samples : int
-            The total number of samples (= maximum sample index + 1).
-
-        Returns
-        -------
-        array-like
-             An array of indices of unique pairs with shape (k,) where k <= m.
-
-        """
-        # First generate a hash array
-        h = np.array([i * n_samples + j for i, j in zip(ind_a, ind_b)])
-
-        # Get the indices of the unique elements in the hash array
-        _, ind_u = np.unique(h, return_index=True)
-        self.logger.debug('Found {} unique pairs out of {}.'.format(len(ind_u), len(ind_a)))
-        return ind_u
-
-    def _print_config(self):
+    def print_config(self):
         """Print some parts of the classifier configuration that a user is likely to be interested in."""
+
         print('Parameters:\n')
-        params_to_print = {'n_neighbors', 'n_features_out', 'max_iter', 'use_pca', 'max_constr', 'load', 'save', 'use_sparse', 'tol'}
+        params_to_print = {'n_neighbors', 'n_features_out', 'max_iter', 'use_pca', 'max_constr', 'load', 'save',
+                           'use_sparse', 'tol', 'verbose', 'random_state'}
         for k, v in self.__dict__.items():
             if k in params_to_print:
-                print('{:10}: {}'.format(k, v))
+                print('{:15}: {}'.format(k, v))
         print()

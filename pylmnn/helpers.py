@@ -1,8 +1,7 @@
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D  # Needed for projection='3d'
 import numpy as np
 import numpy.linalg as LA
-from sklearn import manifold
+from scipy import sparse
+from sklearn.utils import gen_batches
 from sklearn.neighbors import KNeighborsClassifier
 
 
@@ -80,52 +79,88 @@ def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors, L=None):
     return acc
 
 
-def plot_comparison(L, X, y, dim_pref=2, t_sne=False):
-    """Draw a scatter plot of points, colored by their labels, before and after applying a learned transformation
+def sum_outer_products(X, weights, remove_zero=False):
+    """Computes the sum of weighted outer products using a sparse weights matrix
 
     Parameters
     ----------
-    L : array_like
-        The learned transformation in an array with shape (n_features_out, n_features_in).
     X : array_like
         An array of data samples with shape (n_samples, n_features_in).
-    y : array_like
-        An array of data labels with shape (n_samples,).
-    dim_pref : int
-        The preferred number of dimensions to plot (default: 2).
-    t_sne : bool
-        Whether to use t-SNE to produce the plot or just use the first two dimensions
-        of the inputs (default: False).
+    weights : csr_matrix
+        A sparse weights matrix (indicating target neighbors) with shape (n_samples, n_samples).
+    remove_zero : bool
+        Whether to remove rows and columns of the symmetrized weights matrix that are zero (default: False).
+
+    Returns
+    -------
+    array_like
+        An array with the sum of all weighted outer products with shape (n_features_in, n_features_in).
 
     """
-    if dim_pref < 2 or dim_pref > 3:
-        print('Preferred plot dimensionality must be 2 or 3, setting to 2!')
-        dim_pref = 2
+    weights_sym = weights + weights.T
+    if remove_zero:
+        _, cols = weights_sym.nonzero()
+        idx = np.unique(cols)
+        weights_sym = weights_sym.tocsc()[:, idx].tocsr()[idx, :]
+        X = X[idx]
 
-    if t_sne:
-        print("Computing t-SNE embedding")
-        tsne = manifold.TSNE(n_components=dim_pref, init='pca', random_state=0)
-        X_tsne = tsne.fit_transform(X)
-        Lx_tsne = tsne.fit_transform(X.dot(L.T))
-        X = X_tsne
-        Lx = Lx_tsne
-    else:
-        Lx = X.dot(L.T)
+    n = weights_sym.shape[0]
+    diag = sparse.spdiags(weights_sym.sum(axis=0), 0, n, n)
+    laplacian = diag.tocsr() - weights_sym
+    sodw = X.T @ laplacian @ X
+    return sodw
 
-    fig = plt.figure()
-    if X.shape[1] > 2 and dim_pref == 3:
-        ax = fig.add_subplot(121, projection='3d')
-        ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=y)
-        ax.set_title('Original Data')
-        ax = fig.add_subplot(122, projection='3d')
-        ax.scatter(Lx[:, 0], Lx[:, 1], Lx[:, 2], c=y)
-        ax.set_title('Transformed Data')
-    elif X.shape[1] >= 2:
-        ax = fig.add_subplot(121)
-        ax.scatter(X[:, 0], X[:, 1], c=y)
-        ax.set_title('Original Data')
-        ax = fig.add_subplot(122)
-        ax.scatter(Lx[:, 0], Lx[:, 1], c=y)
-        ax.set_title('Transformed Data')
 
-    plt.show()
+def pairs_distances_batch(X, ind_a, ind_b, batch_size=500):
+    """Equivalent to  np.sum(np.square(x[ind_a] - x[ind_b]), axis=1)
+
+    Parameters
+    ----------
+    X : array_like
+        An array of data samples with shape (n_samples, n_features_in).
+    ind_a : array_like
+        An array of samples indices with shape (m,).
+    ind_b : array_like
+        Another array of samples indices with shape (m,).
+    batch_size :
+        Size of each chunk of X to compute distances for (default: 500)
+
+    Returns
+    -------
+    array-like
+        An array of pairwise distances with shape (m,).
+
+    """
+    n = len(ind_a)
+    res = np.zeros(n)
+    for chunk in gen_batches(n, batch_size):
+        res[chunk] = np.sum(np.square(X[ind_a[chunk]] - X[ind_b[chunk]]), axis=1)
+    return res
+
+
+def unique_pairs(ind_a, ind_b, n_samples=None):
+    """Find the unique pairs contained in zip(ind_a, ind_b)
+
+    Parameters
+    ----------
+    ind_a : list
+        A list with indices of reference samples of length m.
+    ind_b : list
+        A list with indices of impostor samples of length m.
+    n_samples : int, optional
+        The total number of samples (= maximum sample index + 1). If None it will be inferred from the indices.
+
+    Returns
+    -------
+    array-like
+         An array of indices of unique pairs with shape (k,) where k <= m.
+
+    """
+    # First generate a hash array
+    if n_samples is None:
+        n_samples = max(np.max(ind_a), np.max(ind_b))
+    h = np.array([i * n_samples + j for i, j in zip(ind_a, ind_b)], dtype=np.uint32)
+
+    # Get the indices of the unique elements in the hash array
+    _, ind_u = np.unique(h, return_index=True)
+    return ind_u
