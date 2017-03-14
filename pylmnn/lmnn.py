@@ -56,7 +56,7 @@ class LargeMarginNearestNeighbor:
         1: Information from the classifier will be logged.
         2: Information from the classifier and debugging information will be logged.
         3: Information from the classifier and the L-BFGS optimizer will be logged.
-        4: Information from the classifier and the L-BFGS optimizer and debugging information will be logged.
+        4: Information from the classifier, the L-BFGS optimizer and debugging information will be logged.
     random_state : int
         A seed for reproducibility of random state  (default: None).
 
