@@ -22,7 +22,7 @@ clf = LMNN(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out)
 # Train the classifier
 clf = clf.fit(x_tr, y_tr)
 
-# Compute the n_neighbors-nearest neighbor test accuracy after applying the learned transformation
+# Compute the k-nearest neighbor test accuracy after applying the learned transformation
 test_acc = test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=k_te, L=clf.L)
 
 # Draw a comparison plot of the test data before and after applying the learned transformation

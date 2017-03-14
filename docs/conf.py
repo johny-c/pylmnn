@@ -21,9 +21,10 @@ import os
 import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
-devdir = os.environ['HOME'] + '/projects/pylmnn'
-sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('.'))
+devdir = os.environ['HOME'] + '/projects/pylmnn/'
+sys.path.insert(0, os.path.abspath(devdir))
+# sys.path.insert(0, os.path.abspath(os.path.join(devdir, 'examples')))
+# sys.path.insert(0, os.path.abspath('.'))
 
 
 # For autodoc to produce the source code in readthedocs.io
