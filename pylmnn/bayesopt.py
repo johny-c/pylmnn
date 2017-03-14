@@ -77,17 +77,11 @@ def find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials=12):
         bo_iter += 1
         print('Iteration {} of Bayesian Optimisation'.format(bo_iter))
         print('Trying K(lmnn)={}\tK(knn)={}\tdim_out={}\tmax_iter={} ...\n'.format(k_tr, k_te, dim_out, max_iter))
-        lmnn_clf = LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, **params)
-        knn_clf = KNeighborsClassifier(n_neighbors=k_te)
-
-        lmnn_clf = lmnn_clf.fit(x_tr, y_tr)
-        Lx_tr = lmnn_clf.transform(x_tr)
+        clf = LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, **params)
+        clf = clf.fit(x_tr, y_tr)
 
         print('Evaluating the found transformation on validation set of size {}...'.format(len(y_va)))
-        knn_clf.fit(Lx_tr, y_tr)
-        Lx_va = lmnn_clf.transform(x_va)
-        y_pred = knn_clf.predict(Lx_va)
-        val_err = np.mean(np.not_equal(y_pred, y_va))
+        val_err = 1. - clf.score(x_va, y_va)
 
         print('\nValidation error={:2.4f}\n'.format(val_err))
         return val_err

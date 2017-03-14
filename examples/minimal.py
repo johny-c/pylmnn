@@ -23,7 +23,8 @@ clf = LMNN(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out)
 clf = clf.fit(x_tr, y_tr)
 
 # Compute the k-nearest neighbor test accuracy after applying the learned transformation
-test_acc = test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=k_te, L=clf.L)
+accuracy_lmnn = clf.score(x_te, y_te)
+print('LMNN accuracy on test set of {} points: {:.4f}'.format(x_te.shape[0], accuracy_lmnn))
 
 # Draw a comparison plot of the test data before and after applying the learned transformation
 plot_comparison(clf.L, x_te, y_te, dim_pref=3)

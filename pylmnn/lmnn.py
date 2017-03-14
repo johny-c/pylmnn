@@ -1,6 +1,7 @@
 import numpy as np
 from numpy import linalg as LA
 from scipy import sparse, optimize
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.utils import gen_batches, check_random_state, check_X_y
 import logging, sys, os
@@ -62,23 +63,21 @@ class LargeMarginNearestNeighbor:
 
     Attributes
     ----------
-    X : array_like
+    X_ : array_like
         An array of input samples with shape (n_samples, n_features_in).
-    y : array_like
+    y_ : array_like
         An array of input labels with shape (n_samples,).
-    targets : array_like
+    targets_ : array_like
         An array of target neighbors for each sample with shape (n_samples, n_neighbors).
-    grad_static : array_like
+    grad_static_ : array_like
         An array of the gradient component caused by target neighbors, that stays fixed throughout the algorithm with
         shape (n_features_in, n_features_in).
-    n_funcalls : int
+    n_funcalls_ : int
         The number of times the optimiser computes the loss and the gradient.
-    name : str
+    name_ : str
         A name for the instance based on the current number of existing instances.
 
-    Class Attributes
-    ----------------
-    _obj_count : int
+    _obj_count : int (class attribute)
         An instance counter
 
     """
@@ -106,11 +105,11 @@ class LargeMarginNearestNeighbor:
 
         # Setup instance name
         LargeMarginNearestNeighbor._obj_count += 1
-        self.name = __name__ + '(' + str(LargeMarginNearestNeighbor._obj_count) + ')'
+        self.name_ = __name__ + '(' + str(LargeMarginNearestNeighbor._obj_count) + ')'
 
     def _setup_logger(self):
         """Instantiate a logger object for the current class instance"""
-        self.logger = logging.getLogger(self.name)
+        self.logger = logging.getLogger(self.name_)
         if self.verbose in [1,3]:
             self.logger.setLevel(logging.INFO)
         elif self.verbose in [2,4]:
@@ -136,7 +135,7 @@ class LargeMarginNearestNeighbor:
 
         """
         if X is None:
-            X = self.X
+            X = self.X_
         return X @ self.L.T
 
     def check_n_neighbors(self, y):
@@ -167,15 +166,15 @@ class LargeMarginNearestNeighbor:
             return
 
         if self.use_pca:
-            cc = np.cov(self.X, rowvar=False)  # Mean is removed
+            cc = np.cov(self.X_, rowvar=False)  # Mean is removed
             evals, evecs = LA.eigh(cc)  # Get eigenvalues in ascending order, eigenvectors in columns
             evecs = np.fliplr(evecs)    # Flip eigenvectors to get them in descending eigenvalue order
             self.L = evecs.T            # Set L rows equal to eigenvectors
         else:
-            self.L = np.eye(self.X.shape[1])
+            self.L = np.eye(self.X_.shape[1])
 
         if self.n_features_out is not None:
-            n_features_in = self.X.shape[1]
+            n_features_in = self.X_.shape[1]
             if self.n_features_out > n_features_in:
                 self.logger.warning('n_features_out({}) cannot be larger than the inputs dimensionality '
                                     '({}), setting n_features_out to {}!'.format(self.n_features_out, n_features_in, n_features_in))
@@ -204,13 +203,13 @@ class LargeMarginNearestNeighbor:
         self._setup_logger()
 
         # Check inputs consistency
-        self.X, self.y = check_X_y(X, y)
+        self.X_, self.y_ = check_X_y(X, y)
 
         # Check number of neighbors is realistic
         self.check_n_neighbors(y)
 
         # Print classifier configuration
-        self.print_config()
+        self.print_params()
 
         # Initialize L
         self._init_transformer()
@@ -220,25 +219,25 @@ class LargeMarginNearestNeighbor:
         # np.random.seed(self.random_state)
 
         # Find target neighbors (fixed)
-        self.targets = self._select_targets()
+        self.targets_ = self._select_targets()
 
         # Compute gradient component of target neighbors (constant)
         self.logger.info('Computing gradient component due to target neighbors...')
         n_samples, n_features_in = X.shape
         rows = np.repeat(np.arange(n_samples), self.n_neighbors)  # 0 0 0 1 1 1 ... (n-1) (n-1) (n-1) with n_neighbors=3
-        cols = self.targets.flatten()
+        cols = self.targets_.flatten()
         targets_sparse = sparse.csr_matrix((np.ones(n_samples * self.n_neighbors), (rows, cols)), shape=(n_samples, n_samples))
-        self.grad_static = sum_outer_products(X, targets_sparse)
+        self.grad_static_ = sum_outer_products(X, targets_sparse)
 
         # Define optimization problem
         disp = 1 if self.verbose in [3, 4] else None
-        self.n_funcalls = 0
+        self.n_funcalls_ = 0
         self.logger.info('Now optimizing...')
         if self.save is not None:
             save_dir, save_file = os.path.split(self.save)
             if save_dir is not '' and not os.path.exists(save_dir):
                 os.mkdir(save_dir)
-            save_file = self.save + '_' + str(self.n_funcalls)
+            save_file = self.save + '_' + str(self.n_funcalls_)
             np.save(save_file, self.L)
 
         L, loss, details = optimize.fmin_l_bfgs_b(func=self._loss_grad, x0=self.L, bounds=None,
@@ -250,6 +249,33 @@ class LargeMarginNearestNeighbor:
         self.details['loss'] = loss
 
         return self
+
+    def predict(self, X):
+        """Predict the class labels for the provided data
+
+        Parameters
+        ----------
+        X : array-like, shape (n_query, n_features)
+            Test samples.
+
+        Returns
+        -------
+        y : array of shape [n_samples]
+            Class labels for each data sample.
+        """
+
+        knn_clf = KNeighborsClassifier(n_neighbors=self.n_neighbors)
+        knn_clf.fit(self.transform(self.X_), self.y_)
+        y_pred = knn_clf.predict(self.transform(X))
+
+        return y_pred
+
+    def score(self, X, y):
+
+        y_pred = self.predict(X)
+        accuracy = np.mean(np.equal(y_pred, y))
+
+        return accuracy
 
     def _loss_grad(self, L):
         """Compute the loss under a given linear transformation `L` and the loss gradient w.r.t. `L`.
@@ -267,13 +293,13 @@ class LargeMarginNearestNeighbor:
 
         """
 
-        n_samples, n_features_in = self.X.shape
-        _, k = self.targets.shape
+        n_samples, n_features_in = self.X_.shape
+        _, k = self.targets_.shape
         self.L = L.reshape(L.size // n_features_in, n_features_in)
-        self.n_funcalls += 1
-        self.logger.info('Function call {}'.format(self.n_funcalls))
+        self.n_funcalls_ += 1
+        self.logger.info('Function call {}'.format(self.n_funcalls_))
         if self.save is not None:
-            save_file = self.save + '_' + str(self.n_funcalls)
+            save_file = self.save + '_' + str(self.n_funcalls_)
             np.save(save_file, self.L)
         Lx = self.transform()
 
@@ -281,7 +307,7 @@ class LargeMarginNearestNeighbor:
         self.logger.debug('Computing distances to target neighbors under new L...')
         dist_tn = np.zeros((n_samples, k))
         for j in range(k):
-            dist_tn[:, j] = np.sum(np.square(Lx - Lx[self.targets[:, j]]), axis=1) + 1
+            dist_tn[:, j] = np.sum(np.square(Lx - Lx[self.targets_[:, j]]), axis=1) + 1
 
         # Compute distances to impostors under L
         self.logger.debug('Setting margin radii...')
@@ -305,13 +331,13 @@ class LargeMarginNearestNeighbor:
             A2 = sparse.csr_matrix((2*loss2[act], (imp1[act], imp2[act])), (n_samples, n_samples))
 
             vals = np.squeeze(np.asarray(A2.sum(0) + A1.sum(1).T))
-            A0 = A0 - A1 - A2 + sparse.csr_matrix((vals, (range(n_samples), self.targets[:, nnid])), (n_samples, n_samples))
+            A0 = A0 - A1 - A2 + sparse.csr_matrix((vals, (range(n_samples), self.targets_[:, nnid])), (n_samples, n_samples))
             loss = loss + np.sum(loss1 ** 2) + np.sum(loss2 ** 2)
 
-        grad_new = sum_outer_products(self.X, A0, remove_zero=True)
-        df = self.L @ (self.grad_static + grad_new)
+        grad_new = sum_outer_products(self.X_, A0, remove_zero=True)
+        df = self.L @ (self.grad_static_ + grad_new)
         df *= 2
-        loss = loss + (self.grad_static * (self.L.T @ self.L)).sum()
+        loss = loss + (self.grad_static_ * (self.L.T @ self.L)).sum()
         self.logger.debug('Loss and gradient computed!\n')
         return loss, df.flatten()
 
@@ -326,10 +352,10 @@ class LargeMarginNearestNeighbor:
         """
 
         self.logger.info('Finding target neighbors...')
-        target_neighbors = np.empty((self.X.shape[0], self.n_neighbors), dtype=int)
+        target_neighbors = np.empty((self.X_.shape[0], self.n_neighbors), dtype=int)
         for label in self.labels:
             ind, = np.where(np.equal(self.label_ind, label))
-            dist = euclidean_distances(self.X[ind], squared=True)
+            dist = euclidean_distances(self.X_[ind], squared=True)
             np.fill_diagonal(dist, np.inf)
             neigh_ind = np.argpartition(dist, self.n_neighbors - 1, axis=1)
             neigh_ind = neigh_ind[:, :self.n_neighbors]
@@ -362,7 +388,7 @@ class LargeMarginNearestNeighbor:
             An array of pairwise distances of (imp1, imp2) with shape (n_impostors,).
 
         """
-        n_samples = self.X.shape[0]
+        n_samples = self.X_.shape[0]
 
         # Initialize impostors vectors
         imp1, imp2, dist = [], [], []
@@ -418,7 +444,7 @@ class LargeMarginNearestNeighbor:
 
         """
 
-        n_samples = self.X.shape[0]
+        n_samples = self.X_.shape[0]
 
         # Initialize impostors matrix
         impostors_sp = sparse.csr_matrix((n_samples, n_samples), dtype=np.int8)
@@ -502,13 +528,22 @@ class LargeMarginNearestNeighbor:
         else:
             return imp1, imp2
 
-    def print_config(self):
+    def get_params(self):
+        """Get the parameters of the classifier that a user is likely to be interested in."""
+
+        params = {}
+        params_to_get = {'n_neighbors', 'n_features_out', 'max_iter', 'use_pca', 'max_constr', 'load', 'save',
+                           'use_sparse', 'tol', 'verbose', 'random_state'}
+        for k, v in self.__dict__.items():
+            if k in params_to_get:
+                params[k] = v
+
+        return params
+
+    def print_params(self):
         """Print some parts of the classifier configuration that a user is likely to be interested in."""
 
         print('Parameters:\n')
-        params_to_print = {'n_neighbors', 'n_features_out', 'max_iter', 'use_pca', 'max_constr', 'load', 'save',
-                           'use_sparse', 'tol', 'verbose', 'random_state'}
-        for k, v in self.__dict__.items():
-            if k in params_to_print:
-                print('{:15}: {}'.format(k, v))
+        for k, v in self.get_params().items():
+            print('{:15}: {}'.format(k, v))
         print()

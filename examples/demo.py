@@ -68,8 +68,12 @@ def main(demo='shrec14'):
     print('Average time / function call: {:.4f} s'.format(t_train / clf.details['funcalls']))
     print('Training loss: {}'.format(clf.details['loss']))
 
-    test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=min(clf.n_neighbors, k_te))
-    test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=min(clf.n_neighbors, k_te), L=clf.L)
+    accuracy_knn = test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=min(clf.n_neighbors, k_te))
+    print('kNN accuracy on test set of {} points: {:.4f}'.format(x_te.shape[0], accuracy_knn))
+
+    accuracy_lmnn = clf.score(x_te, y_te)
+    print('LMNN accuracy on test set of {} points: {:.4f}'.format(x_te.shape[0], accuracy_lmnn))
+
     plot_comparison(clf.L, x_te, y_te, dim_pref=3)
 
 

@@ -41,7 +41,7 @@ def pca_transform(X, var_ratio=1):
     return Lx
 
 
-def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors, L=None):
+def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors):
     """Compute the k-nearest neighbor accuracy
 
     Parameters
@@ -56,8 +56,6 @@ def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors, L=None):
         An array of testing labels with shape (m_samples,) - the ground truth.
     n_neighbors : int
         The number of neighbors to consider.
-    L : array_like
-        A learned linear transformation (default: None).
 
     Returns
     -------
@@ -66,16 +64,10 @@ def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors, L=None):
 
     """
     knn_clf = KNeighborsClassifier(n_neighbors=n_neighbors)
-    if L is None:
-        knn_clf.fit(x_tr, y_tr)
-        y_pred = knn_clf.predict(x_te)
-        acc = np.mean(np.equal(y_pred, y_te))
-        print('kNN accuracy on test set of {} points: {:.4f}'.format(x_te.shape[0], acc))
-    else:
-        knn_clf.fit(x_tr.dot(L.T), y_tr)
-        y_pred = knn_clf.predict(x_te.dot(L.T))
-        acc = np.mean(np.equal(y_pred, y_te))
-        print('LMNN accuracy on test set of {} points: {:.4f}\n'.format(x_te.shape[0], acc))
+    knn_clf.fit(x_tr, y_tr)
+    y_pred = knn_clf.predict(x_te)
+    acc = np.mean(np.equal(y_pred, y_te))
+
     return acc
 
 
