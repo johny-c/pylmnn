@@ -1,6 +1,5 @@
 import numpy as np
 from GPyOpt.methods import BayesianOptimization
-from sklearn.neighbors import KNeighborsClassifier
 from .lmnn import LargeMarginNearestNeighbor
 
 

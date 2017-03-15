@@ -20,8 +20,9 @@ def pca_fit(X, var_ratio=1, return_transform=True):
     Returns
     -------
     array_like
-        An array with shape (n_samples, n_components) which is the input samples projected onto `n_components`
-        principal components.
+        If return_transform is True, an array with shape (n_samples, n_components) which is the input samples projected
+        onto `n_components` principal components. Otherwise the first `n_components` eigenvectors of the covariance
+        matrix corresponding to the `n_components` largest eigenvalues are returned as rows.
 
     """
 

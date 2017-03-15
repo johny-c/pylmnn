@@ -19,16 +19,21 @@
 #
 import os
 import sys
+
+
 sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('.'))
 
 # For autodoc to produce the source code in readthedocs.io
 import mock
 
-MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot', 'sklearn',
-        'GPyOpt', 'GPyOpt.methods', 'matplotlib.axes', 'sklearn.metrics',
-        'sklearn.metrics.pairwise', 'sklearn.utils', 'sklearn.utils.validation',
-        'mpl_toolkits.mplot3d', 'sklearn.neighbors', 'numpy.linalg',
-        'sklearn.datasets', 'sklearn.model_selection']
+MOCK_MODULES = ['numpy', 'scipy', 'sklearn',
+                'numpy.linalg',
+                'sklearn.datasets', 'sklearn.utils', 'sklearn.utils.validation', 'sklearn.model_selection',
+                'sklearn.metrics', 'sklearn.metrics.pairwise', 'sklearn.neighbors',
+                'GPyOpt', 'GPyOpt.methods',
+                'matplotlib', 'matplotlib.pyplot', 'matplotlib.axes', 'mpl_toolkits.mplot3d'
+                ]
 
 for mod_name in MOCK_MODULES:
     sys.modules[mod_name] = mock.Mock()

@@ -1,5 +1,5 @@
 API Reference
-========================
+=============
 
 pylmnn.lmnn module
 ------------------
@@ -8,7 +8,6 @@ pylmnn.lmnn module
     :members:
     :undoc-members:
     :show-inheritance:
-
 
 pylmnn.helpers module
 ---------------------
@@ -29,7 +28,7 @@ pylmnn.bayesopt module
 
 
 pylmnn.plots module
-----------------------
+-------------------
 
 .. automodule:: pylmnn.plots
     :members:

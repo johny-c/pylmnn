@@ -242,10 +242,11 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
     def _setup_logger(self):
         """Instantiate a logger object for the current class instance"""
         logger = logging.getLogger(self.name_)
-        if self.verbose in [1,3]:
+        if self.verbose in [1, 3]:
             logger.setLevel(logging.INFO)
-        elif self.verbose in [2,4]:
+        elif self.verbose in [2, 4]:
             logger.setLevel(logging.DEBUG)
+
         stream_handler = logging.StreamHandler(stream=sys.stdout)
         formatter = logging.Formatter(fmt='%(asctime)s  %(name)s - %(levelname)s : %(message)s')
         stream_handler.setFormatter(formatter)
@@ -285,7 +286,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             n_features_in = self.X_.shape[1]
             if self.n_features_out > n_features_in:
                 self.logger_.warning('n_features_out({}) cannot be larger than the inputs dimensionality '
-                                    '({}), setting n_features_out to {}!'.format(self.n_features_out, n_features_in, n_features_in))
+                                     ', setting n_features_out to {}!'.format(self.n_features_out, n_features_in))
                 self.n_features_out = n_features_in
             L = L[:self.n_features_out]
 
@@ -309,16 +310,16 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         self.logger_.info('Finding target neighbors...')
         target_neighbors = np.empty((X.shape[0], n_neighbors), dtype=int)
-        for label in self.classes_:
-            ind, = np.where(np.equal(self.y_, label))
-            dist = euclidean_distances(X[ind], squared=True)
+        for class_ in self.classes_:
+            class_ind, = np.where(np.equal(self.y_, class_))
+            dist = euclidean_distances(X[class_ind], squared=True)
             np.fill_diagonal(dist, np.inf)
             neigh_ind = np.argpartition(dist, n_neighbors - 1, axis=1)
             neigh_ind = neigh_ind[:, :n_neighbors]
             # argpartition doesn't guarantee sorted order, so we sort again but only the k neighbors
-            row_ind = np.arange(len(ind))[:, None]
+            row_ind = np.arange(len(class_ind))[:, None]
             neigh_ind = neigh_ind[row_ind, np.argsort(dist[row_ind, neigh_ind])]
-            target_neighbors[ind] = ind[neigh_ind]
+            target_neighbors[class_ind] = class_ind[neigh_ind]
 
         return target_neighbors
 
@@ -453,14 +454,14 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             # Initialize impostors matrix
             impostors_sp = sparse.csr_matrix((n_samples, n_samples), dtype=np.int8)
 
-            for label in self.classes_[:-1]:
+            for class_ in self.classes_[:-1]:
                 imp1, imp2 = [], []
-                idx_in, = np.where(np.equal(self.y_, label))
-                idx_out, = np.where(np.greater(self.y_, label))
+                idx_in, = np.where(np.equal(self.y_, class_))
+                idx_out, = np.where(np.greater(self.y_, class_))
 
                 # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
                 self.logger_.debug(
-                    'Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > label], label))
+                    'Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > class_], class_))
                 ii, jj = self._find_impostors_batch(Lx[idx_out], Lx[idx_in], margin_radii[idx_out],
                                                     margin_radii[idx_in])
                 if len(ii):
@@ -481,16 +482,16 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         else:
             # Initialize impostors vectors
             imp1, imp2, dist = [], [], []
-            for label in self.classes_[:-1]:
-                idx_in, = np.where(np.equal(self.y_, label))
-                idx_out, = np.where(np.greater(self.y_, label))
+            for class_ in self.classes_[:-1]:
+                idx_in, = np.where(np.equal(self.y_, class_))
+                idx_out, = np.where(np.greater(self.y_, class_))
                 # Permute the indices (experimental)
                 # idx_in = np.random.permutation(idx_in)
                 # idx_out = np.random.permutation(idx_out)
 
                 # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
                 self.logger_.debug(
-                    'Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > label], label))
+                    'Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > class_], class_))
                 ii, jj, dd = self._find_impostors_batch(Lx[idx_out], Lx[idx_in], margin_radii[idx_out],
                                                         margin_radii[idx_in], return_dist=True)
                 if len(ii):
