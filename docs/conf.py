@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # PyLMNN documentation build configuration file, created by
-# sphinx-quickstart on Sun Mar  5 16:59:10 2017.
+# sphinx-quickstart on Wed Mar 15 20:46:40 2017.
 #
 # This file is execfile()d with the current directory set to its
 # containing dir.
@@ -17,33 +17,9 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-import os
-import sys
+# import os
+# import sys
 # sys.path.insert(0, os.path.abspath('.'))
-
-sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('.'))
-
-# For autodoc to produce the source code in readthedocs.io
-import mock
-
-MOCK_MODULES = ['numpy', 'scipy', 'matplotlib', 'matplotlib.pyplot', 'sklearn',
-        'GPyOpt', 'GPyOpt.methods', 'matplotlib.axes', 'sklearn.metrics',
-        'sklearn.metrics.pairwise', 'sklearn.utils', 'sklearn.utils.validation',
-        'mpl_toolkits.mplot3d', 'sklearn.neighbors', 'numpy.linalg',
-        'sklearn.datasets', 'sklearn.model_selection']
-
-for mod_name in MOCK_MODULES:
-    sys.modules[mod_name] = mock.Mock()
-
-
-# Markdown
-from recommonmark.parser import CommonMarkParser
-
-source_parsers = {
-    '.md': CommonMarkParser,
-}
-
 
 
 # -- General configuration ------------------------------------------------
@@ -56,11 +32,9 @@ source_parsers = {
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ['sphinx.ext.autodoc',
-    'sphinx.ext.doctest',
     'sphinx.ext.intersphinx',
     'sphinx.ext.todo',
     'sphinx.ext.coverage',
-    'sphinx.ext.mathjax',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon']
 
@@ -70,8 +44,8 @@ templates_path = ['_templates']
 # The suffix(es) of source filenames.
 # You can specify multiple suffix as a list of string:
 #
-source_suffix = ['.rst', '.md']
-# source_suffix = '.rst'
+# source_suffix = ['.rst', '.md']
+source_suffix = '.rst'
 
 # The master toctree document.
 master_doc = 'index'
@@ -85,8 +59,6 @@ author = 'John Chiotellis'
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
-# The short X.Y version.
-
 from setup import __version__
 version = __version__
 # The full version, including alpha/beta/rc tags.
@@ -116,7 +88,6 @@ todo_include_todos = True
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-#html_theme = 'alabaster'
 html_theme = "sphinx_rtd_theme"
 
 # Theme options are theme-specific and customize the look and feel of a theme
