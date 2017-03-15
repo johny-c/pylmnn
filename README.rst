@@ -50,7 +50,6 @@ Here is a minimal use case:
     from sklearn.datasets import load_iris
 
     from pylmnn.lmnn import LargeMarginNearestNeighbor as LMNN
-    from pylmnn.helpers import test_knn
     from pylmnn.plots import plot_comparison
 
 

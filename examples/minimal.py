@@ -2,7 +2,6 @@ from sklearn.model_selection import train_test_split
 from sklearn.datasets import load_iris
 
 from pylmnn.lmnn import LargeMarginNearestNeighbor as LMNN
-from pylmnn.helpers import test_knn
 from pylmnn.plots import plot_comparison
 
 
@@ -27,4 +26,4 @@ accuracy_lmnn = clf.score(x_te, y_te)
 print('LMNN accuracy on test set of {} points: {:.4f}'.format(x_te.shape[0], accuracy_lmnn))
 
 # Draw a comparison plot of the test data before and after applying the learned transformation
-plot_comparison(clf.L, x_te, y_te, dim_pref=3)
+plot_comparison(clf.L_, x_te, y_te, dim_pref=3)

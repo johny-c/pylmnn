@@ -6,7 +6,7 @@ from configparser import ConfigParser
 
 from pylmnn.bayesopt import find_hyperparams
 from pylmnn.lmnn import LargeMarginNearestNeighbor
-from pylmnn.helpers import test_knn, pca_transform
+from pylmnn.helpers import test_knn, pca_fit
 from pylmnn.plots import plot_comparison
 
 from data_fetch import fetch_from_config
@@ -28,7 +28,7 @@ def main(demo='shrec14'):
 
     if cfg['pre_process'].getboolean('pca'):
         print('Cleaning data set...')
-        X = pca_transform(np.concatenate((x_tr, x_te)), var_ratio=0.95)
+        X = pca_fit(np.concatenate((x_tr, x_te)), var_ratio=0.95)
         x_tr, x_te = X[:x_tr.shape[0]], X[x_tr.shape[0]:]
 
     bo = cfg['bayes_opt']
@@ -63,18 +63,18 @@ def main(demo='shrec14'):
     t_train = time() - t_train
 
     print('\nStatistics:\n{}\nLMNN trained in: {:.4f} s'.format('-'*50, t_train))
-    print('Number of iterations: {}'.format(clf.details['nit']))
-    print('Number of function calls: {}'.format(clf.details['funcalls']))
-    print('Average time / function call: {:.4f} s'.format(t_train / clf.details['funcalls']))
-    print('Training loss: {}'.format(clf.details['loss']))
+    print('Number of iterations: {}'.format(clf.details_['nit']))
+    print('Number of function calls: {}'.format(clf.details_['funcalls']))
+    print('Average time / function call: {:.4f} s'.format(t_train / clf.details_['funcalls']))
+    print('Training loss: {}'.format(clf.details_['loss']))
 
-    accuracy_knn = test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=min(clf.n_neighbors, k_te))
+    accuracy_knn = test_knn(x_tr, y_tr, x_te, y_te, n_neighbors=min(clf.n_neighbors_, k_te))
     print('kNN accuracy on test set of {} points: {:.4f}'.format(x_te.shape[0], accuracy_knn))
 
     accuracy_lmnn = clf.score(x_te, y_te)
     print('LMNN accuracy on test set of {} points: {:.4f}'.format(x_te.shape[0], accuracy_lmnn))
 
-    plot_comparison(clf.L, x_te, y_te, dim_pref=3)
+    plot_comparison(clf.L_, x_te, y_te, dim_pref=3)
 
 
 if __name__ == '__main__':

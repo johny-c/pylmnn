@@ -1,14 +1,14 @@
 API Reference
 ========================
 
+pylmnn.lmnn module
+------------------
 
-pylmnn.bayesopt module
-----------------------
-
-.. automodule:: pylmnn.bayesopt
+.. automodule:: pylmnn.lmnn
     :members:
     :undoc-members:
     :show-inheritance:
+
 
 pylmnn.helpers module
 ---------------------
@@ -18,11 +18,20 @@ pylmnn.helpers module
     :undoc-members:
     :show-inheritance:
 
-pylmnn.lmnn module
-------------------
 
-.. automodule:: pylmnn.lmnn
+pylmnn.bayesopt module
+----------------------
+
+.. automodule:: pylmnn.bayesopt
     :members:
     :undoc-members:
     :show-inheritance:
 
+
+pylmnn.plots module
+----------------------
+
+.. automodule:: pylmnn.plots
+    :members:
+    :undoc-members:
+    :show-inheritance:

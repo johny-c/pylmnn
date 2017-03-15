@@ -5,7 +5,7 @@ from sklearn.utils import gen_batches
 from sklearn.neighbors import KNeighborsClassifier
 
 
-def pca_transform(X, var_ratio=1):
+def pca_fit(X, var_ratio=1, return_transform=True):
     """
 
     Parameters
@@ -14,6 +14,8 @@ def pca_transform(X, var_ratio=1):
         An array of data samples with shape (n_samples, n_features).
     var_ratio : float
         The variance ratio to be captured (Default value = 1).
+    return_transform : bool
+        Whether to apply the transformation to the given data.
 
     Returns
     -------
@@ -36,9 +38,10 @@ def pca_transform(X, var_ratio=1):
         n_components = np.argmax(np.greater_equal(var_exp, var_ratio))
         L = evecs.T[:n_components]  # Set the first n_components eigenvectors as rows of L
 
-    Lx = X.dot(L.T)
-
-    return Lx
+    if return_transform:
+        return X.dot(L.T)
+    else:
+        return L
 
 
 def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors):
@@ -100,6 +103,7 @@ def sum_outer_products(X, weights, remove_zero=False):
     diag = sparse.spdiags(weights_sym.sum(axis=0), 0, n, n)
     laplacian = diag.tocsr() - weights_sym
     sodw = X.T @ laplacian @ X
+
     return sodw
 
 
@@ -127,6 +131,7 @@ def pairs_distances_batch(X, ind_a, ind_b, batch_size=500):
     res = np.zeros(n)
     for chunk in gen_batches(n, batch_size):
         res[chunk] = np.sum(np.square(X[ind_a[chunk]] - X[ind_b[chunk]]), axis=1)
+
     return res
 
 
@@ -151,8 +156,10 @@ def unique_pairs(ind_a, ind_b, n_samples=None):
     # First generate a hash array
     if n_samples is None:
         n_samples = max(np.max(ind_a), np.max(ind_b))
+
     h = np.array([i * n_samples + j for i, j in zip(ind_a, ind_b)], dtype=np.uint32)
 
     # Get the indices of the unique elements in the hash array
     _, ind_u = np.unique(h, return_index=True)
+
     return ind_u
