@@ -96,9 +96,9 @@ def sum_outer_products(X, weights, remove_zero=False):
     weights_sym = weights + weights.T
     if remove_zero:
         _, cols = weights_sym.nonzero()
-        idx = np.unique(cols)
-        weights_sym = weights_sym.tocsc()[:, idx].tocsr()[idx, :]
-        X = X[idx]
+        ind = np.unique(cols)
+        weights_sym = weights_sym.tocsc()[:, ind].tocsr()[ind, :]
+        X = X[ind]
 
     n = weights_sym.shape[0]
     diag = sparse.spdiags(weights_sym.sum(axis=0), 0, n, n)
@@ -161,6 +161,6 @@ def unique_pairs(ind_a, ind_b, n_samples=None):
     h = np.array([i * n_samples + j for i, j in zip(ind_a, ind_b)], dtype=np.uint32)
 
     # Get the indices of the unique elements in the hash array
-    _, ind_u = np.unique(h, return_index=True)
+    _, ind_unique = np.unique(h, return_index=True)
 
-    return ind_u
+    return ind_unique

@@ -1,10 +1,12 @@
+import os
+import sys
+import logging
 import numpy as np
 from scipy import sparse, optimize
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.utils import gen_batches
 from sklearn.utils.validation import check_is_fitted, check_array, check_X_y, check_random_state
-import logging, sys, os
 
 from .helpers import unique_pairs, pairs_distances_batch, sum_outer_products, pca_fit
 
@@ -22,35 +24,45 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
     Parameters
     ----------
-    L_init : array_like
+    L : array_like
         Initial transformation in an array with shape (n_features_out, n_features_in).  If None `load`
         will be used to load a transformation from a file. (default: None)
+
     n_neighbors : int
         Number of target neighbors (default: 3)
+
     max_iter : int
         Maximum number of iterations in the optimization (default: 200)
+
     use_pca : bool
         Whether to use pca to warm-start the linear transformation.
         If False, the identity will be used. (default: True)
+
     tol : float
         Tolerance for the optimization  (default: 1e-5)
+
     n_features_out : int
         Preferred dimensionality of the inputs after the transformation.
         If None it is inferred from `use_pca` and `L`.(default: None)
+
     max_constr : int
         Maximum number of constraints to enforce per iteration (default: 10 million).
+
     use_sparse : bool
         Whether to use a sparse or a dense matrix for the impostor-pairs storage. Using a sparse matrix,
         the distance to impostors is computed twice, but it is somewhat faster for
         larger data sets than using a dense matrix. With a dense matrix, the unique impostor pairs have to be identified
         explicitly (default: True).
+
     load : string
         A file path from which to load a linear transformation.
         If None, either identity or pca will be used based on `use_pca` (default: None).
+
     save : string
         A file path prefix to save intermediate linear transformations to. After every function
         call, it will be extended with the function call number and the `.npy` file
         extension. If None, nothing will be saved (default: None).
+
     verbose : int
         The level of logger verbosity. Can take values from 0 to 4 inclusive (default: 1).
         0: Only basic information will be printed.
@@ -58,6 +70,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         2: Information from the classifier and debugging information will be logged.
         3: Information from the classifier and the L-BFGS optimizer will be logged.
         4: Information from the classifier, the L-BFGS optimizer and debugging information will be logged.
+
     random_state : int
         A seed for reproducibility of random state  (default: None).
 
@@ -65,27 +78,38 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
     ----------
     X_ : array_like
         An array of training samples with shape (n_samples, n_features_in).
+
     y_ : array_like
         An array of training labels with shape (n_samples,).
+
     n_neighbors_ : int
         The number of target neighbors (decreased if n_neighbors was not realistic for all classes)
+
     classes_: array_like
         An array of the uniquely appearing class labels with shape (n_classes,).
+
     L_ : array_like
         The linear transformation used during fitting with shape (n_features_out, n_features_in).
+
     targets_ : array_like
         An array of target neighbors for each sample with shape (n_samples, n_neighbors).
+
     grad_static_ : array_like
         An array of the gradient component caused by target neighbors, that stays fixed throughout the algorithm with
         shape (n_features_in, n_features_in).
+
     n_iters_ : int
         The number of iterations of the optimizer.
+
     n_funcalls_ : int
-        The number of times the optimiser computes the loss and the gradient.
+        The number of times the optimizer computes the loss and the gradient.
+
     name_ : str
         A name for the instance based on the current number of existing instances.
+
     logger_ : object
         A logger object to log information during fitting.
+
     details_ : dict
         A dictionary of information created by the L-BFGS optimizer during fitting.
 
@@ -96,13 +120,13 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
     _obj_count = 0
 
-    def __init__(self, L_init=None, n_neighbors=3, n_features_out=None, max_iter=200, tol=1e-5, use_pca=True,
+    def __init__(self, L=None, n_neighbors=3, n_features_out=None, max_iter=200, tol=1e-5, use_pca=True,
                  max_constr=int(1e7), use_sparse=True, load=None, save=None, verbose=1, random_state=None):
 
         super().__init__(n_neighbors=n_neighbors)
 
         # Parameters
-        self.L = L_init
+        self.L = L
         self.n_features_out = n_features_out
         self.max_iter = max_iter
         self.tol = tol
@@ -113,10 +137,6 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         self.save = save
         self.verbose = verbose
         self.random_state = random_state
-
-        # Initialize number of optimizer iterations and objective function calls
-        self.n_iters_ = 0
-        self.n_funcalls_ = 0
 
         # Setup instance name
         LargeMarginNearestNeighbor._obj_count += 1
@@ -155,12 +175,6 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         # Initialize transformer
         self.L_ = self._init_transformer()
 
-        # Print classifier configuration
-        print('Parameters:\n')
-        for k, v in self.get_params().items():
-            print('{:15}: {}'.format(k, v))
-        print()
-
         # Prepare for saving if needed
         if self.save is not None:
             save_dir, save_file = os.path.split(self.save)
@@ -169,16 +183,17 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             save_file = self.save + '_' + str(self.n_funcalls_)
             np.save(save_file, self.L_)
 
-        # Set seed for randomness
-        self.random_state_ = check_random_state(self.random_state)
-
         # Find target neighbors (fixed)
         self.targets_ = self._select_target_neighbors()
 
         # Compute gradient component of target neighbors (constant)
         self.grad_static_ = self._compute_grad_static()
 
-        # Define optimization problem
+        # Initialize number of optimizer iterations and objective function calls
+        self.n_iters_ = 0
+        self.n_funcalls_ = 0
+
+        # Call optimizer
         disp = 1 if self.verbose in [3, 4] else None
         self.logger_.info('Now optimizing...')
         L, loss, details = optimize.fmin_l_bfgs_b(func=self._loss_grad, x0=self.L_, bounds=None,
@@ -192,7 +207,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         self.details_['loss'] = loss
 
         # Fit a simple nearest neighbor classifier with the learned metric
-        # super().set_params(n_neighbors=self.n_neighbors_)
+        super().set_params(n_neighbors=self.n_neighbors_)
         super().fit(self.transform(), self.y_)
 
         return self
@@ -456,17 +471,17 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
             for class_ in self.classes_[:-1]:
                 imp1, imp2 = [], []
-                idx_in, = np.where(np.equal(self.y_, class_))
-                idx_out, = np.where(np.greater(self.y_, class_))
+                ind_in, = np.where(np.equal(self.y_, class_))
+                ind_out, = np.where(np.greater(self.y_, class_))
 
                 # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
                 self.logger_.debug(
                     'Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > class_], class_))
-                ii, jj = self._find_impostors_batch(Lx[idx_out], Lx[idx_in], margin_radii[idx_out],
-                                                    margin_radii[idx_in])
+                ii, jj = self._find_impostors_batch(Lx[ind_out], Lx[ind_in], margin_radii[ind_out],
+                                                    margin_radii[ind_in])
                 if len(ii):
-                    imp1.extend(idx_out[ii])
-                    imp2.extend(idx_in[jj])
+                    imp1.extend(ind_out[ii])
+                    imp2.extend(ind_in[jj])
                     new_imps = sparse.csr_matrix(([1] * len(imp1), (imp1, imp2)), shape=(n_samples, n_samples),
                                                  dtype=np.int8)
                     impostors_sp = impostors_sp + new_imps
@@ -474,8 +489,9 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             imp1, imp2 = impostors_sp.nonzero()
             # subsample constraints if they are too many
             if impostors_sp.nnz > self.max_constr:
-                idx = np.random.choice(impostors_sp.nnz, self.max_constr, replace=False)
-                imp1, imp2 = imp1[idx], imp2[idx]
+                random_state = check_random_state(self.random_state)
+                ind_subsample = random_state.choice(impostors_sp.nnz, self.max_constr, replace=False)
+                imp1, imp2 = imp1[ind_subsample], imp2[ind_subsample]
 
             # self.logger.debug('Computing distances to impostors under new L...')
             dist = pairs_distances_batch(Lx, imp1, imp2)
@@ -483,8 +499,8 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             # Initialize impostors vectors
             imp1, imp2, dist = [], [], []
             for class_ in self.classes_[:-1]:
-                idx_in, = np.where(np.equal(self.y_, class_))
-                idx_out, = np.where(np.greater(self.y_, class_))
+                ind_in, = np.where(np.equal(self.y_, class_))
+                ind_out, = np.where(np.greater(self.y_, class_))
                 # Permute the indices (experimental)
                 # idx_in = np.random.permutation(idx_in)
                 # idx_out = np.random.permutation(idx_out)
@@ -492,24 +508,24 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                 # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
                 self.logger_.debug(
                     'Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > class_], class_))
-                ii, jj, dd = self._find_impostors_batch(Lx[idx_out], Lx[idx_in], margin_radii[idx_out],
-                                                        margin_radii[idx_in], return_dist=True)
+                ii, jj, dd = self._find_impostors_batch(Lx[ind_out], Lx[ind_in], margin_radii[ind_out],
+                                                        margin_radii[ind_in], return_dist=True)
                 if len(ii):
-                    imp1.extend(idx_out[ii])
-                    imp2.extend(idx_in[jj])
+                    imp1.extend(ind_out[ii])
+                    imp2.extend(ind_in[jj])
                     dist.extend(dd)
 
-            idx = unique_pairs(imp1, imp2, n_samples)
-            self.logger_.debug('Found {} unique pairs out of {}.'.format(len(idx), len(imp1)))
+            ind_unique = unique_pairs(imp1, imp2, n_samples)
+            self.logger_.debug('Found {} unique pairs out of {}.'.format(len(ind_unique), len(imp1)))
 
             # subsample constraints if they are too many
-            if len(idx) > self.max_constr:
-                # idx = self.random_state.choice(idx, self.max_constr, replace=False)
-                idx = np.random.choice(idx, self.max_constr, replace=False)
+            if len(ind_unique) > self.max_constr:
+                random_state = check_random_state(self.random_state)
+                ind_unique = random_state.choice(ind_unique, self.max_constr, replace=False)
 
-            imp1 = np.asarray(imp1)[idx]
-            imp2 = np.asarray(imp2)[idx]
-            dist = np.asarray(dist)[idx]
+            imp1 = np.asarray(imp1)[ind_unique]
+            imp2 = np.asarray(imp2)[ind_unique]
+            dist = np.asarray(dist)[ind_unique]
 
         return imp1, imp2, dist
 

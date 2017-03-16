@@ -20,9 +20,9 @@
 import os
 import sys
 
+from sklearn.neighbors import KNeighborsClassifier
 
 sys.path.insert(0, os.path.abspath('..'))
-sys.path.insert(0, os.path.abspath('.'))
 
 # For autodoc to produce the source code in readthedocs.io
 import mock
@@ -30,7 +30,7 @@ import mock
 MOCK_MODULES = ['numpy', 'scipy', 'sklearn',
                 'numpy.linalg',
                 'sklearn.datasets', 'sklearn.utils', 'sklearn.utils.validation', 'sklearn.model_selection',
-                'sklearn.metrics', 'sklearn.metrics.pairwise', 'sklearn.neighbors',
+                'sklearn.metrics', 'sklearn.metrics.pairwise',
                 'GPyOpt', 'GPyOpt.methods',
                 'matplotlib', 'matplotlib.pyplot', 'matplotlib.axes', 'mpl_toolkits.mplot3d'
                 ]
