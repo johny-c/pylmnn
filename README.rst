@@ -103,8 +103,7 @@ publication.
 License and Contact
 ^^^^^^^^^^^^^^^^^^^
 
-This work is released under the `GNU General Public License Version 3
-(GPLv3) <http://www.gnu.org/licenses/gpl.html>`__.
+This work is released under the `3-Clause BSD License <https://opensource.org/licenses/BSD-3-Clause>`__.
 
 Contact **John Chiotellis**
 `:envelope: <mailto:johnyc.code@gmail.com>`__ for questions, comments
