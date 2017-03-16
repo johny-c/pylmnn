@@ -5,7 +5,7 @@ from codecs import open
 from os import path
 
 
-__version__ = '1.5.0'
+__version__ = '1.5.1'
 
 if __name__ == '__main__':
     here = path.abspath(path.dirname(__file__))
@@ -23,7 +23,7 @@ if __name__ == '__main__':
         url='https://github.com/johny-c/pylmnn.git',
         author='John Chiotellis',
         author_email='johnyc.code@gmail.com',
-        license='GPLv3',
+        license='new BSD',
 
         classifiers=[
                     'Development Status :: 4 - Beta',
