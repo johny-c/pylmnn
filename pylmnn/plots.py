@@ -51,4 +51,3 @@ def plot_comparison(L, X, y, dim_pref=2, t_sne=False):
         ax.scatter(Lx[:, 0], Lx[:, 1], c=y)
         ax.set_title('Transformed Data')
 
-    plt.show()

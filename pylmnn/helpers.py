@@ -2,7 +2,6 @@ import numpy as np
 import numpy.linalg as LA
 from scipy import sparse
 from sklearn.utils import gen_batches
-from sklearn.neighbors import KNeighborsClassifier
 
 
 def pca_fit(X, var_ratio=1, return_transform=True):
@@ -26,8 +25,8 @@ def pca_fit(X, var_ratio=1, return_transform=True):
 
     """
 
-    cc = np.cov(X, rowvar=False)  # Mean is removed
-    evals, evecs = LA.eigh(cc)  # Get eigenvalues in ascending order, eigenvectors in columns
+    cov_ = np.cov(X, rowvar=False)  # Mean is removed
+    evals, evecs = LA.eigh(cov_)  # Get eigenvalues in ascending order, eigenvectors in columns
     evecs = np.fliplr(evecs)  # Flip eigenvectors to get them in descending eigenvalue order
 
     if var_ratio == 1:
@@ -43,36 +42,6 @@ def pca_fit(X, var_ratio=1, return_transform=True):
         return X.dot(L.T)
     else:
         return L
-
-
-def test_knn(x_tr, y_tr, x_te, y_te, n_neighbors):
-    """Compute the k-nearest neighbor accuracy
-
-    Parameters
-    ----------
-    x_tr : array_like
-        An array of training samples with shape (n_samples, n_features).
-    y_tr : array_like
-        An array of training labels with shape (n_samples,).
-    x_te : array_like
-        An array of testing samples with shape (m_samples, n_features).
-    y_te : array_like
-        An array of testing labels with shape (m_samples,) - the ground truth.
-    n_neighbors : int
-        The number of neighbors to consider.
-
-    Returns
-    -------
-    float
-        The k-nn accuracy.
-
-    """
-    knn_clf = KNeighborsClassifier(n_neighbors=n_neighbors)
-    knn_clf.fit(x_tr, y_tr)
-    y_pred = knn_clf.predict(x_te)
-    acc = np.mean(np.equal(y_pred, y_te))
-
-    return acc
 
 
 def sum_outer_products(X, weights, remove_zero=False):

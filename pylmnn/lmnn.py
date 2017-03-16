@@ -6,6 +6,7 @@ from scipy import sparse, optimize
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.utils import gen_batches
+from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_is_fitted, check_array, check_X_y, check_random_state
 
 from .helpers import unique_pairs, pairs_distances_batch, sum_outer_products, pca_fit
@@ -76,20 +77,26 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
     Attributes
     ----------
+    L_ : array_like
+        The linear transformation used during fitting with shape (n_features_out, n_features_in).
+
+    n_neighbors_ : int
+        The number of target neighbors (decreased if n_neighbors was not realistic for all classes).
+
+    n_features_out_ : int
+        The dimensionality of a vector after applying to it the linear transformation.
+
     X_ : array_like
         An array of training samples with shape (n_samples, n_features_in).
 
     y_ : array_like
         An array of training labels with shape (n_samples,).
 
-    n_neighbors_ : int
-        The number of target neighbors (decreased if n_neighbors was not realistic for all classes)
+    labels_: array_like
+        An array of the uniquely appearing class labels with shape (n_classes,) and type object.
 
     classes_: array_like
-        An array of the uniquely appearing class labels with shape (n_classes,).
-
-    L_ : array_like
-        The linear transformation used during fitting with shape (n_features_out, n_features_in).
+        An array of the uniquely appearing class labels as integers with shape (n_classes,) and type int.
 
     targets_ : array_like
         An array of target neighbors for each sample with shape (n_samples, n_neighbors).
@@ -98,7 +105,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         An array of the gradient component caused by target neighbors, that stays fixed throughout the algorithm with
         shape (n_features_in, n_features_in).
 
-    n_iters_ : int
+    n_iter_ : int
         The number of iterations of the optimizer.
 
     n_funcalls_ : int
@@ -165,15 +172,17 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         # Check inputs consistency
         self.X_, y = check_X_y(X, y)
+        check_classification_targets(y)
 
         # Store the appearing classes and the class index for each sample
-        self.classes_, self.y_ = np.unique(y, return_inverse=True)
+        self.labels_, self.y_ = np.unique(y, return_inverse=True)
+        self.classes_ = np.arange(len(self.labels_))
 
         # Check that the number of neighbors is achievable for all classes
-        self.n_neighbors_ = self.check_n_neighbors()
+        self.n_neighbors_ = self.check_n_neighbors(self.y_)
 
         # Initialize transformer
-        self.L_ = self._init_transformer()
+        self.L_, self.n_features_out_ = self._init_transformer()
 
         # Prepare for saving if needed
         if self.save is not None:
@@ -190,7 +199,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         self.grad_static_ = self._compute_grad_static()
 
         # Initialize number of optimizer iterations and objective function calls
-        self.n_iters_ = 0
+        self.n_iter_ = 0
         self.n_funcalls_ = 0
 
         # Call optimizer
@@ -200,15 +209,16 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                                                   m=100, pgtol=self.tol, maxfun=500*self.max_iter,
                                                   maxiter=self.max_iter, disp=disp, callback=self._cb)
         # Reshape result from optimizer
-        self.L_ = L.reshape(self.n_features_out, L.size // self.n_features_out)
+        self.L_ = L.reshape(self.n_features_out_, L.size // self.n_features_out_)
 
         # Store output to return
         self.details_ = details
         self.details_['loss'] = loss
 
         # Fit a simple nearest neighbor classifier with the learned metric
-        super().set_params(n_neighbors=self.n_neighbors_)
-        super().fit(self.transform(), self.y_)
+        # TODO: Notify superclass KNeighborsClassifier that n_neighbors might have changed to n_neighbors_
+        # super().set_params(n_neighbors=self.n_neighbors_)
+        super().fit(self.transform(), y)
 
         return self
 
@@ -249,10 +259,31 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         # Check if fit had been called
         check_is_fitted(self, ['X_', 'y_'])
-        X = check_array(X)
         y_pred = super().predict(self.transform(X))
 
         return y_pred
+
+    def predict_proba(self, X):
+        """Return probability estimates for the test data X.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_query, n_features)
+            Test samples.
+
+        Returns
+        -------
+        p : array of shape = [n_samples, n_classes], or a list of n_outputs
+            of such arrays if n_outputs > 1.
+            The class probabilities of the input samples. Classes are ordered
+            by lexicographic order.
+        """
+
+        # Check if fit had been called
+        check_is_fitted(self, ['X_', 'y_'])
+        probabilities = super().predict_proba(self.transform(X))
+
+        return probabilities
 
     def _setup_logger(self):
         """Instantiate a logger object for the current class instance"""
@@ -269,46 +300,52 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         return logger
 
-    def check_n_neighbors(self, y=None, n_neighbors=None):
+    def check_n_neighbors(self, y, n_neighbors=None):
         """Check if all classes have enough samples to query the specified number of neighbors."""
-
-        if y is None:
-            y = self.y_
 
         if n_neighbors is None:
             n_neighbors = self.n_neighbors
 
-        max_neighbors = np.bincount(y).min() - 1
+        min_class_size = np.bincount(y).min()
+        if min_class_size < 2:
+            raise ValueError('At least one class has less than 2 ({}) training samples.'.format(min_class_size))
+
+        max_neighbors = min_class_size - 1
         if n_neighbors > max_neighbors:
-            self.logger_.warning('n_neighbors too high (={}). Setting to {}\n'.format(n_neighbors, max_neighbors))
+            self.logger_.warning('n_neighbors(={}) too high. Setting to {}\n'.format(n_neighbors, max_neighbors))
 
         return min(n_neighbors, max_neighbors)
 
     def _init_transformer(self):
-        """Initialise the linear transformation by loading from a file, applying PCA or setting to identity."""
+        """Initialize the linear transformation by setting to user specified parameter, loading from a file,
+        applying PCA or setting to identity."""
+
         if self.L is not None:
-            return self.L
-
-        if self.load is not None:
-            return np.load(self.load)
-
-        if self.use_pca:
+            L = self.L
+        elif self.load is not None:
+            L = np.load(self.load)
+        elif self.use_pca and self.X_.shape[1] > 1:
             L = pca_fit(self.X_, return_transform=False)
         else:
             L = np.eye(self.X_.shape[1])
 
-        if self.n_features_out is not None:
-            n_features_in = self.X_.shape[1]
-            if self.n_features_out > n_features_in:
-                self.logger_.warning('n_features_out({}) cannot be larger than the inputs dimensionality '
-                                     ', setting n_features_out to {}!'.format(self.n_features_out, n_features_in))
-                self.n_features_out = n_features_in
-            L = L[:self.n_features_out]
+        n_features_out = L.shape[0] if self.n_features_out is None else self.n_features_out
+        n_features_in = self.X_.shape[1]
 
-        return L
+        if L.shape[1] != n_features_in:
+            raise ValueError('Dimensionality of the given transformation and the inputs don\'t match ({},{}).'.format(L.shape[1], n_features_in))
 
-    def _select_target_neighbors(self, X=None, n_neighbors=None):
-        """Compute the target neighbors, that stay fixed during training.
+        if n_features_out > n_features_in:
+            self.logger_.warning('n_features_out({}) cannot be larger than the inputs dimensionality, setting n_features_out to {}!'.format(n_features_out, n_features_in))
+            n_features_out = n_features_in
+
+        if L.shape[0] > n_features_out:
+            L = L[:n_features_out]
+
+        return L, n_features_out
+
+    def _select_target_neighbors(self):
+        """Find the target neighbors of each sample, that stay fixed during training.
 
         Returns
         -------
@@ -317,20 +354,14 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         """
 
-        if X is None:
-            X = self.X_
-
-        if n_neighbors is None:
-            n_neighbors = self.n_neighbors_
-
         self.logger_.info('Finding target neighbors...')
-        target_neighbors = np.empty((X.shape[0], n_neighbors), dtype=int)
+        target_neighbors = np.empty((self.X_.shape[0], self.n_neighbors_), dtype=int)
         for class_ in self.classes_:
             class_ind, = np.where(np.equal(self.y_, class_))
-            dist = euclidean_distances(X[class_ind], squared=True)
+            dist = euclidean_distances(self.X_[class_ind], squared=True)
             np.fill_diagonal(dist, np.inf)
-            neigh_ind = np.argpartition(dist, n_neighbors - 1, axis=1)
-            neigh_ind = neigh_ind[:, :n_neighbors]
+            neigh_ind = np.argpartition(dist, self.n_neighbors_ - 1, axis=1)
+            neigh_ind = neigh_ind[:, :self.n_neighbors_]
             # argpartition doesn't guarantee sorted order, so we sort again but only the k neighbors
             row_ind = np.arange(len(class_ind))[:, None]
             neigh_ind = neigh_ind[row_ind, np.argsort(dist[row_ind, neigh_ind])]
@@ -338,7 +369,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         return target_neighbors
 
-    def _compute_grad_static(self, X=None, target_neighbors=None):
+    def _compute_grad_static(self):
         """Compute the gradient component due to the target neighbors that stays fixed throughout training
 
         Returns
@@ -348,19 +379,13 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         """
 
-        if X is None:
-            X = self.X_
-
-        if target_neighbors is None:
-            target_neighbors = self.targets_
-
         self.logger_.info('Computing gradient component due to target neighbors...')
-        n_samples, n_neighbors = target_neighbors.shape
+        n_samples, n_neighbors = self.targets_.shape
         rows = np.repeat(np.arange(n_samples), n_neighbors)  # 0 0 0 1 1 1 ... (n-1) (n-1) (n-1) with n_neighbors=3
-        cols = target_neighbors.flatten()
+        cols = self.targets_.flatten()
         targets_sparse = sparse.csr_matrix((np.ones(n_samples * n_neighbors), (rows, cols)), shape=(n_samples, n_samples))
 
-        return sum_outer_products(X, targets_sparse)
+        return sum_outer_products(self.X_, targets_sparse)
 
     def _cb(self, L):
         """Callback function called after every iteration of the optimizer. The intermediate transformations are
@@ -372,12 +397,12 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             The (flattened) linear transformation in the current iteration.
 
         """
-        self.logger_.info('Iteration {:4} / {:4}'.format(self.n_iters_, self.max_iter))
+        self.logger_.info('Iteration {:4} / {:4}'.format(self.n_iter_, self.max_iter))
         if self.save is not None:
-            save_file = self.save + '_' + str(self.n_iters_)
-            L = L.reshape(self.n_features_out, L.size // self.n_features_out)
+            save_file = self.save + '_' + str(self.n_iter_)
+            L = L.reshape(self.n_features_out_, L.size // self.n_features_out_)
             np.save(save_file, L)
-        self.n_iters_ += 1
+        self.n_iter_ += 1
 
     def _loss_grad(self, L):
         """Compute the loss under a given linear transformation `L` and the loss gradient w.r.t. `L`.
@@ -396,7 +421,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         """
 
         n_samples, n_features_in = self.X_.shape
-        self.L_ = L.reshape(self.n_features_out, n_features_in)
+        self.L_ = L.reshape(self.n_features_out_, n_features_in)
         self.n_funcalls_ += 1
         self.logger_.debug('Function call {}'.format(self.n_funcalls_))
 
@@ -434,7 +459,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         df = self.L_ @ (self.grad_static_ + grad_new)
         df *= 2
         loss = loss + (self.grad_static_ * (self.L_.T @ self.L_)).sum()
-        self.logger_.debug('Loss and gradient computed!\n')
+        self.logger_.info('Loss = {} at function call {}.\n'.format(loss, self.n_funcalls_))
 
         return loss, df.flatten()
 
@@ -475,8 +500,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                 ind_out, = np.where(np.greater(self.y_, class_))
 
                 # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
-                self.logger_.debug(
-                    'Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > class_], class_))
+                self.logger_.debug('Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > class_], class_))
                 ii, jj = self._find_impostors_batch(Lx[ind_out], Lx[ind_in], margin_radii[ind_out],
                                                     margin_radii[ind_in])
                 if len(ii):
@@ -506,8 +530,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                 # idx_out = np.random.permutation(idx_out)
 
                 # Subdivide idx_out x idx_in to chunks of a size that is fitting in memory
-                self.logger_.debug(
-                    'Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > class_], class_))
+                self.logger_.debug('Impostor classes {} to class {}..'.format(self.classes_[self.classes_ > class_], class_))
                 ii, jj, dd = self._find_impostors_batch(Lx[ind_out], Lx[ind_in], margin_radii[ind_out],
                                                         margin_radii[ind_in], return_dist=True)
                 if len(ii):
@@ -582,3 +605,15 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             return imp1, imp2, dist
         else:
             return imp1, imp2
+
+    def __getstate__(self):
+        """Have to override getstate because logger is not picklable"""
+        state = dict(self.__dict__)
+        del state['logger_']
+
+        return state
+
+    def __setstate__(self, state):
+        """Have to override setstate because logger is not picklable"""
+        self.__dict__.update(state)
+        self.logger_ = self._setup_logger()
