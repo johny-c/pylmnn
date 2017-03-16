@@ -1,3 +1,13 @@
+"""
+Large Margin Nearest Neighbor Classification
+"""
+
+# Author: John Chiotellis <johnyc.code@gmail.com>
+
+# License: BSD 3 clause (C) John Chiotellis
+
+from __future__ import print_function
+
 import os
 import sys
 import logging
@@ -19,9 +29,6 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
     https://bitbucket.org/mlcircus/lmnn which solves the unconstrained problem, finding a linear
     transformation with L-BFGS instead of solving the constrained problem that finds the globally
     optimal metric.
-    
-    Copyright (c) 2017, John Chiotellis
-    Licensed under the GPLv3 license (see LICENSE.txt)
 
     Parameters
     ----------
@@ -123,6 +130,22 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
     _obj_count : int (class attribute)
         An instance counter
 
+    Examples
+    --------
+    >>> X = [[0], [1], [2], [3]]
+    >>> y = [0, 0, 1, 1]
+    >>> from pylmnn.lmnn import LargeMarginNearestNeighbor
+    >>> lmnn = LargeMarginNearestNeighbor(n_neighbors=1)
+    >>> lmnn.fit(X, y) # doctest: +ELLIPSIS
+    LargeMarginNearestNeighbor(L=None, load=None, max_constr=10000000,
+              max_iter=200, n_features_out=None, n_neighbors=1,
+              random_state=None, save=None, tol=1e-05, use_pca=True,
+              use_sparse=True, verbose=1)
+    >>> print(lmnn.predict([[1.1]]))
+    [0]
+    >>> print(lmnn.predict_proba([[0.9]]))
+    [[ 1.  0.]]
+
     """
 
     _obj_count = 0
@@ -130,7 +153,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
     def __init__(self, L=None, n_neighbors=3, n_features_out=None, max_iter=200, tol=1e-5, use_pca=True,
                  max_constr=int(1e7), use_sparse=True, load=None, save=None, verbose=1, random_state=None):
 
-        super().__init__(n_neighbors=n_neighbors)
+        super(LargeMarginNearestNeighbor, self).__init__(n_neighbors=n_neighbors)
 
         # Parameters
         self.L = L
@@ -218,7 +241,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         self.details_['loss'] = loss
 
         # Fit a simple nearest neighbor classifier with the learned metric
-        super().fit(self.transform(), y)
+        super(LargeMarginNearestNeighbor, self).fit(self.transform(), y)
 
         return self
 
@@ -241,7 +264,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         else:
             X = check_array(X)
 
-        return X @ self.L_.T
+        return X.dot(self.L_.T)
 
     def predict(self, X):
         """Predict the class labels for the provided data
@@ -259,7 +282,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         # Check if fit had been called
         check_is_fitted(self, ['X_', 'y_'])
-        y_pred = super().predict(self.transform(X))
+        y_pred = super(LargeMarginNearestNeighbor, self).predict(self.transform(X))
 
         return y_pred
 
@@ -281,7 +304,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         # Check if fit had been called
         check_is_fitted(self, ['X_', 'y_'])
-        probabilities = super().predict_proba(self.transform(X))
+        probabilities = super(LargeMarginNearestNeighbor, self).predict_proba(self.transform(X))
 
         return probabilities
 
@@ -456,9 +479,9 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             loss = loss + np.sum(loss1 ** 2) + np.sum(loss2 ** 2)
 
         grad_new = sum_outer_products(self.X_, A0, remove_zero=True)
-        df = self.L_ @ (self.grad_static_ + grad_new)
+        df = self.L_.dot(self.grad_static_ + grad_new)
         df *= 2
-        loss = loss + (self.grad_static_ * (self.L_.T @ self.L_)).sum()
+        loss = loss + (self.grad_static_ * (self.L_.T.dot(self.L_))).sum()
         self.logger_.info('Loss = {:,} at function call {}.\n'.format(loss, self.n_funcalls_))
 
         return loss, df.flatten()

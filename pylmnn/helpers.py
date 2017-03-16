@@ -72,7 +72,7 @@ def sum_outer_products(X, weights, remove_zero=False):
     n = weights_sym.shape[0]
     diag = sparse.spdiags(weights_sym.sum(axis=0), 0, n, n)
     laplacian = diag.tocsr() - weights_sym
-    sodw = X.T @ laplacian @ X
+    sodw = X.T.dot(laplacian.dot(X))
 
     return sodw
 
