@@ -180,6 +180,8 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         # Check that the number of neighbors is achievable for all classes
         self.n_neighbors_ = self.check_n_neighbors(self.y_)
+        # TODO: Notify superclass KNeighborsClassifier that n_neighbors might have changed to n_neighbors_
+        # super().set_params(n_neighbors=self.n_neighbors_)
 
         # Initialize transformer
         self.L_, self.n_features_out_ = self._init_transformer()
@@ -216,8 +218,6 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         self.details_['loss'] = loss
 
         # Fit a simple nearest neighbor classifier with the learned metric
-        # TODO: Notify superclass KNeighborsClassifier that n_neighbors might have changed to n_neighbors_
-        # super().set_params(n_neighbors=self.n_neighbors_)
         super().fit(self.transform(), y)
 
         return self
@@ -459,7 +459,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         df = self.L_ @ (self.grad_static_ + grad_new)
         df *= 2
         loss = loss + (self.grad_static_ * (self.L_.T @ self.L_)).sum()
-        self.logger_.info('Loss = {} at function call {}.\n'.format(loss, self.n_funcalls_))
+        self.logger_.info('Loss = {:,} at function call {}.\n'.format(loss, self.n_funcalls_))
 
         return loss, df.flatten()
 

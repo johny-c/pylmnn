@@ -66,7 +66,7 @@ def main(demo='shrec14'):
     print('Number of iterations: {}'.format(clf.details_['nit']))
     print('Number of function calls: {}'.format(clf.details_['funcalls']))
     print('Average time per function call: {:.4f} s'.format(t_train / clf.details_['funcalls']))
-    print('Training loss: {}'.format(clf.details_['loss']))
+    print('Training loss: {:,}'.format(clf.details_['loss']))
     print('Gradient at the minimum: {}\n'.format(clf.details_['grad']))
     termination_reasons = ['convergence', 'too many iterations or function evaluations']
     warnflag = clf.details_['warnflag']
