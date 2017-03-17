@@ -53,6 +53,7 @@ def main(demo='shrec14'):
         max_iter = hyper_params.getint('max_iter')
 
     verbose = cfg['params'].getint('verbose', fallback=1)
+    verbose = 0
     clf = lmnn.LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, verbose=verbose)
 
     # Train full model
