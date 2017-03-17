@@ -19,7 +19,8 @@ from sklearn.utils import gen_batches
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_is_fitted, check_array, check_X_y, check_random_state
 
-from .helpers import unique_pairs, pairs_distances_batch, sum_outer_products, pca_fit
+from .helpers import unique_pairs, pairs_distances_batch, \
+    sum_outer_products, pca_fit
 
 
 class LargeMarginNearestNeighbor(KNeighborsClassifier):
@@ -137,10 +138,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
     >>> from pylmnn.lmnn import LargeMarginNearestNeighbor
     >>> lmnn = LargeMarginNearestNeighbor(n_neighbors=1)
     >>> lmnn.fit(X, y) # doctest: +ELLIPSIS
-    LargeMarginNearestNeighbor(L=None, load=None, max_constr=10000000,
-              max_iter=200, n_features_out=None, n_neighbors=1,
-              random_state=None, save=None, tol=1e-05, use_pca=True,
-              use_sparse=True, verbose=1)
+    LargeMarginNearestNeighbor(...)
     >>> print(lmnn.predict([[1.1]]))
     [0]
     >>> print(lmnn.predict_proba([[0.9]]))
@@ -641,3 +639,8 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         """Have to override setstate because logger is not picklable"""
         self.__dict__.update(state)
         self.logger = self._setup_logger()
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
