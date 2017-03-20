@@ -53,7 +53,7 @@ def main(demo='shrec14'):
         max_iter = hyper_params.getint('max_iter')
 
     verbose = cfg['params'].getint('verbose', fallback=1)
-    verbose = 0
+    verbose = 1
     clf = lmnn.LargeMarginNearestNeighbor(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out, verbose=verbose)
 
     # Train full model
@@ -74,8 +74,7 @@ def main(demo='shrec14'):
     termination_reason = clf.details_['task'] if warnflag == 2 else termination_reasons[warnflag]
     print('Training terminated because of {}.\n'.format(termination_reason))
 
-
-    # Test with simple nearest neighbor classifier
+    #  Test with simple nearest neighbor classifier
     knn_clf = KNeighborsClassifier(n_neighbors=min(clf.n_neighbors_, k_te))
     t_train = time()
     knn_clf = knn_clf.fit(x_tr, y_tr)
@@ -95,4 +94,3 @@ def main(demo='shrec14'):
 
 if __name__ == '__main__':
     main(str(sys.argv[1])) if len(sys.argv) > 1 else main()
-
