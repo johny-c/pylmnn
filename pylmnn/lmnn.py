@@ -42,9 +42,8 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
     Parameters
     ----------
-    L : array with shape (n_features_out, n_features_in), optional, default
-        None
-        Initial linear transformation.
+    L : array, shape (n_features_out, n_features_in), optional, default None
+        An initial linear transformation.
 
     n_neighbors : int, optional, default 3
         Number of target neighbors.
@@ -57,7 +56,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         If False, the identity will be used.
 
     tol : float, optional, default 1e-5
-        Tolerance for the optimization.
+        Convergence tolerance for the optimization.
 
     n_features_out : int, optional, default None
         Preferred dimensionality of the inputs after the transformation.
@@ -71,7 +70,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         impostor-pairs storage. Using a sparse matrix, the distance to
         impostors is computed twice, but it is somewhat faster for larger
         data sets than using a dense matrix. With a dense matrix, the unique
-        impostor pairs have to be identified explicitly (default: True).
+        impostor pairs have to be identified explicitly.
 
     warm_start : bool, optional, default False
         When set to True, reuse the solution of the previous
@@ -104,8 +103,8 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         The linear transformation used during fitting.
 
     n_neighbors_ : int
-        The number of target neighbors (decreased if n_neighbors was not
-        realizable for all classes).
+        The provided n_neighbors is decreased when >= min(number of
+        elements in each class).
 
     n_features_out_ : int
         The dimensionality of a sample's vector after applying to it the linear
@@ -196,18 +195,22 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         """
 
         # Check inputs consistency
-        X, y = check_X_y(X, y, order='F')
+        X, y = check_X_y(X, y)
         check_classification_targets(y)
 
         # Store the appearing classes and the class index for each sample
         classes, y_ = np.unique(y, return_inverse=True)
 
+        if len(classes) <= 1:
+            raise ValueError("LargeMarginNearestNeighbor requires 2 or more "
+                             "distinct classes, got {}.".format(len(classes)))
+
         if self.warm_start:
             if set(classes) != set(self.classes_):
                 raise ValueError("warm_start can only be used where `y` has "
-                                 "the same classes as in the previous "
-                                 "call to fit. Previously got %s, `y` has %s" %
-                                 (self.classes_, classes))
+                                 "the same classes as in the previous call to "
+                                 "fit. Previously got {}, `y` has {}".
+                                 format(self.classes_, classes))
 
         self.classes_ = classes
 
@@ -232,6 +235,9 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         self.n_funcalls_ = 0
         iprint = 2*int(self.iprint) - 1
 
+        # For older versions of fmin, x0 needs to be a vector
+        L = L.ravel()
+
         # Call optimizer
         if sp_version >= (0, 12, 0):
             L, loss, info = optimize.fmin_l_bfgs_b(
@@ -243,9 +249,8 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                 iprint=iprint,
                 args=(X, y_, targets, grad_static))
         else:
-            # Type Error caused in old versions of SciPy because of no
-            # maxiter argument (<= 0.11.0).
-            L = np.asfortranarray(L)
+            # Type Error caused in old versions of SciPy (<= 0.11.0) because
+            # of no maxiter argument.
             try:
                 L, loss, info = optimize.fmin_l_bfgs_b(
                     func=self._loss_grad,
@@ -256,15 +261,9 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                     iprint=iprint,
                     args=(X, y_, targets, grad_static))
 
-            except ValueError as ve:
-                # ValueError: failed to initialize intent(inout) array --
-                # input not fortran contiguous
-                raise ValueError('Reraising ValueError: {}\n\t'.format(ve))
-
-            except Exception as e:
-                # _lbfgsb.error: failed in converting 4th argument `u' of
-                # _lbfgsb.setulb to C/Fortran array
-                raise Exception('Old Scipy / lbfgsb version:\n\t{}'.format(e))
+            except ValueError as e:
+                # zero-size array to maximum.reduce without identity
+                raise ValueError("Reraising ValueError\n\t{}".format(e))
 
         # Reshape result from optimizer
         self.L_ = L.reshape(self.n_features_out_, L.size //
@@ -794,6 +793,8 @@ def sum_outer_products(X, weights, remove_zero=False):
     """
     weights_sym = weights + weights.T
     if remove_zero:
+        # this throws the following ValueError in some old numpy version:
+        # zero-size array to maximum.reduce without identity
         _, cols = weights_sym.nonzero()
         ind = np.unique(cols)
         weights_sym = weights_sym.tocsc()[:, ind].tocsr()[ind, :]
