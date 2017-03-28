@@ -4,14 +4,19 @@ from sklearn.datasets import get_data_home
 from sklearn import datasets as skd
 from sklearn import preprocessing as prep
 from sklearn.model_selection import train_test_split
+from os.path import join
+import scipy.io as sio
 
 
-def fetch_from_config(cfg):
+def fetch_from_config(cfg, split=True):
     data_set_name = cfg['fetch']['name']
     if cfg['fetch'].getboolean('sklearn'):
         if data_set_name == 'OLIVETTI':
             data_set = skd.fetch_olivetti_faces(shuffle=True)
+        elif data_set_name == 'USPS':
+            data_set = fetch_load_usps()
         else:
+            print('Downloading "{}" from mldata.org ...'.format(data_set_name))
             data_set = skd.fetch_mldata(data_set_name)
         X, y = data_set.data, data_set.target
         if data_set_name == 'MNIST original':
@@ -28,14 +33,37 @@ def fetch_from_config(cfg):
         else:
             raise NameError('No data set {} found!'.format(data_set_name))
 
-    # Separate training and testing set
-    if data_set_name == 'MNIST original':
-        x_tr, x_te, y_tr, y_te = X[:60000], X[60000:], y[:60000], y[60000:]
-    elif data_set_name != 'ISOLET':
-        test_size = cfg['train_test'].getfloat('test_size')
-        x_tr, x_te, y_tr, y_te = train_test_split(X, y, test_size=test_size, stratify=y)
+    if split:
+        # Separate training and testing set
+        if data_set_name == 'MNIST original':
+            x_tr, x_te, y_tr, y_te = X[:60000], X[60000:], y[:60000], y[60000:]
+        elif data_set_name != 'ISOLET':
+            test_size = cfg['train_test'].getfloat('test_size')
+            x_tr, x_te, y_tr, y_te = train_test_split(X, y, test_size=test_size, stratify=y)
 
-    return x_tr, x_te, y_tr, y_te
+        return x_tr, x_te, y_tr, y_te
+    else:
+        return X, y
+
+def fetch_load_usps(data_dir=None):
+    path = os.path.join(get_data_home(data_dir), 'mldata', 'USPS.mat')
+
+    if not os.path.exists(path):
+        from urllib import request
+        url = 'http://featureselection.asu.edu/download_file.php?filename=USPS.mat&dir=files/datasets/'
+        print('Downloading USPS dataset from {}...'.format(url))
+        request.urlretrieve(url=url, filename=path)
+    else:
+        print('Found USPS in {}.'.format(path))
+
+    matlab_dict = sio.loadmat(join(data_dir, path))
+
+    class Dataset: pass
+    dataset = Dataset()
+    dataset.data = np.asarray(matlab_dict['X'], dtype=np.float)
+    dataset.target = np.asarray(matlab_dict['Y'], dtype=np.int32).ravel()
+
+    return dataset
 
 
 def fetch_load_letters(data_dir=None):
@@ -114,8 +142,7 @@ def fetch_load_isolet(data_dir=None):
 
 
 def load_shrec14(data_dir='shrec14_data', real=False, desc='csd'):
-    from os.path import join
-    import scipy.io as sio
+
     f = 'desc_shrec14_real.mat' if real else 'desc_shrec14_synth.mat'
     mat_dict = sio.loadmat(join(data_dir, f))
 
