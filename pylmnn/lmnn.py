@@ -402,11 +402,10 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         self.n_neighbors_ = min(self.n_neighbors, max_neighbors)
         # TODO: Notify superclass KNeighborsClassifier that n_neighbors
         # might have changed to n_neighbors_
-        super(LargeMarginNearestNeighbor, self).set_params(
-        n_neighbors=self.n_neighbors_)
+        super(LargeMarginNearestNeighbor, self).\
+            set_params(n_neighbors=self.n_neighbors_)
 
         return X, y_inversed
-
 
     def _init_transformer(self, X):
         """Initialize the linear transformation by setting to user specified
@@ -442,7 +441,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             n_features_out = self.n_features_out
             if L.shape[0] > n_features_out:
                 warnings.warn('Decreasing the initial linear transformation '
-                              'output dimensionality ({}) to the'
+                              'output dimensionality ({}) to the '
                               'preferred output dimensionality ({}).'.
                               format(L.shape[0], n_features_out),
                               DataDimensionalityWarning)
@@ -752,7 +751,6 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 ##########################
 # Some helper functions #
 #########################
-
 
 
 def check_scalar(x, name, dtype, min_val=None, max_val=None):
