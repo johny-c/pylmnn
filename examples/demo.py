@@ -41,7 +41,7 @@ def main(demo='shrec14'):
         # Hyper-parameter tuning
         print('Searching for optimal LMNN hyper parameters...\n')
         t_bo = time()
-        params = {'verbose': True}
+        params = {'verbose': 1}
         max_trials = bo.getint('max_trials', fallback=12)
         k_tr, k_te, dim_out, max_iter = bayesopt.\
             find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials)
@@ -58,7 +58,7 @@ def main(demo='shrec14'):
         dim_out = hyper_params.getint('dim_out')
         max_iter = hyper_params.getint('max_iter')
 
-    verbose = cfg['params'].getboolean('verbose', fallback=True)
+    verbose = cfg['params'].getint('verbose', fallback=1)
     LMNN = lmnn.LargeMarginNearestNeighbor
     clf = LMNN(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out,
                verbose=verbose)
