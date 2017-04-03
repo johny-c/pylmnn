@@ -102,6 +102,10 @@ def main(demo='shrec14'):
     print('LMNN accuracy on test set of {} points: {:.4f}'.
           format(x_te.shape[0], accuracy_lmnn))
 
+    y_pred_energy = clf.predict_energy(x_tr, y_tr, x_te)
+    accuracy_lmnn_energy = np.mean(np.equal(y_pred_energy, y_te))
+    print('LMNN energy based accuracy: {}'.format(accuracy_lmnn_energy))
+
     # Draw the test data before and after the linear transformation
     plots.plot_comparison(clf.L_, x_te, y_te, dim_pref=3)
     plt.show()

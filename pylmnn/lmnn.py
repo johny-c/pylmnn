@@ -10,13 +10,13 @@ Large Margin Nearest Neighbor Classification
 from __future__ import print_function
 from sklearn import warnings
 
-import numpy as np
+import numpy as np, os
 from scipy import sparse, optimize
 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.utils import gen_batches
-from sklearn.utils.fixes import argpartition, sp_version, bincount
+from sklearn.utils.fixes import argpartition, partition, sp_version, bincount
 from sklearn.utils.random import choice, check_random_state
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_is_fitted, check_array, check_X_y
@@ -332,17 +332,17 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         return probabilities
 
     def predict_energy(self, X_train, y_train, X_test):
-        """Predict the class labels for the provided data based on energy 
+        """Predict the class labels for the provided data based on energy
         minimization
 
         Parameters
         ----------
         X_train : array-like, shape (n_samples, n_features)
             Training samples.
-            
+
         y_train : array-like, shape (n_samples,)
             Training labels.
-        
+
         X_test : array-like, shape (n_query, n_features)
             Test samples.
 
@@ -670,6 +670,11 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             print('{:9}\t{:^13}\t{:>18,.4f}'.format('', self.n_funcalls_,
                                                     loss))
 
+        if not os.path.exists('ires_shrec14'):
+            os.mkdir('ires_shrec14')
+        filename = os.path.join('ires_shrec14', 'L_' + str(self.n_funcalls_))
+        np.save(filename, arr=self.L_)
+
         return loss, grad.ravel()
 
     def _find_impostors(self, Lx, y, margin_radii, use_sparse=True):
@@ -827,19 +832,20 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
     def _energy_classify_batch(self, Lx_train, y_train, Lx_test, targets,
                                batch_size=500):
-        """Find impostor pairs in chunks to avoid large memory usage
+        """Assign labels to test samples based on energy minimization in
+        chunks to avoid large memory usage.
 
         Parameters
         ----------
         Lx_train : array, shape (n_samples_train, n_features)
             An array of transformed data samples.
-            
+
         y_train : array, shape (n_samples_train,)
             An array of data labels.
 
         Lx_test : array, shape (n_samples_test, n_features)
             Transformed data samples where n_samples2 < n_samples1.
-            
+
         targets : array, shape (n_samples_train, n_neighbors)
             The nearest neighbors of each training sample.
 
@@ -853,12 +859,6 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         """
 
         n_samples_train = Lx_train.shape[0]
-        # Compute distances to target neighbors under L (plus margin)
-        dist_tn = np.zeros((n_samples_train, self.n_neighbors_))
-        for k in range(self.n_neighbors_):
-            dist_tn[:, k] = np.sum(
-                np.square(Lx_train - Lx_train[targets[:, k]]), axis=1) + 1
-
         if n_samples_train >= 50000:
             batch_size = batch_size // 2
         n_samples_test = Lx_test.shape[0]
@@ -866,25 +866,36 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         n_classes = len(classes)
         energy = np.zeros((n_samples_test, n_classes))
 
+        K = self.n_neighbors_
+        train_margin_radii = np.sum(
+                np.square(Lx_train - Lx_train[targets[:, K-1]]), axis=1) + 1
         for chunk in gen_batches(n_samples_test, batch_size):
             dist_train_test = euclidean_distances(Lx_train, Lx_test[chunk],
                                                   squared=True)
 
-            for class_num, class_ in enumerate(classes):
-                ind_friend, = np.where(np.equal(y_train, class_))
-                ind_enemy, = np.where(np.not_equal(y_train, class_))
+            for class_num, test_label in enumerate(classes):
+                ind_friend, = np.where(np.equal(y_train, test_label))
+                ind_enemy, = np.where(np.not_equal(y_train, test_label))
 
-                dist_friend = argpartition(dist_train_test[ind_friend],
-                                           self.n_neighbors_ - 1, axis=1)
+                dist_test_enemy = dist_train_test[ind_enemy].T
+                dist_test_friend = dist_train_test[ind_friend].T
+                dist_test_target = partition(dist_test_friend, K - 1, 1)
+                dist_test_target = np.sort(dist_test_target, axis=1)
+                test_margin_radii = dist_test_target[:, -1] + 1
 
-                dist_ftn = dist_friend[:, :self.n_neighbors_]
-                dist_etn = dist_tn[ind_enemy]
-                dist_enemy_test = dist_train_test[ind_enemy]
+                # static term: distance to target neighbors
+                static_energy = dist_test_target.sum(axis=1)
 
-                viols1 = np.maximum(dist_etn - dist_enemy_test, 0)
-                viols2 = np.maximum(dist_ftn - dist_enemy_test, 0)
-                static_energy = np.sum(dist_ftn, axis=0)
-                energy[chunk, class_num] = viols1 + viols2 + static_energy
+                # hinge loss 1: from impostors to test inputs
+                dist_hinge_1 = test_margin_radii[:, None] - dist_test_enemy
+                hinge_1 = np.maximum(dist_hinge_1, 0).sum(axis=1)
+
+                # hinge loss 2: from test inputs that are impostors
+                train_margin_enemy = train_margin_radii[ind_enemy]
+                dist_hinge_2 = train_margin_enemy[:, None] - dist_test_enemy.T
+                hinge_2 = np.maximum(dist_hinge_2, 0).sum(axis=0)
+
+                energy[chunk, class_num] = static_energy + hinge_1 + hinge_2
 
         y_pred = classes[np.argmin(energy, axis=1)]
 
@@ -894,39 +905,6 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 ##########################
 # Some helper functions #
 #########################
-
-
-def sum_if_less(dist_tt, dist_c, ind_enemies):
-    """Sum if entries of dist_tt if they are less than dist_c
-    
-    Parameters
-    ----------
-    dist_tt : array, shape (n_samples_train, batch_size)
-        Distances between training and test samples
-        
-    dist_c : array, shape (n_enemies, n_neighbors) or (n_friends, n_neighbors)
-        Distances of friends or enemies to their target neighbors
-        
-    ind_enemies : array, shape (n_enemies,)
-        Indices of samples not belonging to the current class
-
-    Returns
-    -------
-
-    """
-    n_samples_train, n_samples_test = dist_tt.shape
-    _, n_neighbors = dist_c.shape
-
-    out = np.zeros(n_samples_train)
-    for ind_train in range(n_samples_train):
-        for ind_enemy in ind_enemies:
-            i = ind_train*n_samples_test + ind_enemy  #  - 1
-            offset = ind_train*n_neighbors
-            for k in range(n_neighbors):
-                violation = dist_c[offset + k] - dist_tt[i]
-                out[ind_train] += max(violation, 0)
-
-    return out
 
 
 def check_scalar(x, name, dtype, min_val=None, max_val=None):
