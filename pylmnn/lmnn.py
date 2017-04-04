@@ -670,9 +670,9 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             print('{:9}\t{:^13}\t{:>18,.4f}'.format('', self.n_funcalls_,
                                                     loss))
 
-        if not os.path.exists('ires_shrec14'):
-            os.mkdir('ires_shrec14')
-        filename = os.path.join('ires_shrec14', 'L_' + str(self.n_funcalls_))
+        if not os.path.exists('ires'):
+            os.mkdir('ires')
+        filename = os.path.join('ires', 'L_' + str(self.n_funcalls_))
         np.save(filename, arr=self.L_)
 
         return loss, grad.ravel()
@@ -862,9 +862,8 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         if n_samples_train >= 50000:
             batch_size = batch_size // 2
         n_samples_test = Lx_test.shape[0]
-        classes = np.unique(y_train)
-        n_classes = len(classes)
-        energy = np.zeros((n_samples_test, n_classes))
+        classes, y_train_inv = np.unique(y_train, return_inverse=True)
+        y_pred = np.empty(n_samples_test, dtype=int)
 
         K = self.n_neighbors_
         train_margin_radii = np.sum(
@@ -872,12 +871,13 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         for chunk in gen_batches(n_samples_test, batch_size):
             dist_train_test = euclidean_distances(Lx_train, Lx_test[chunk],
                                                   squared=True)
+            chunk_size = chunk.stop - chunk.start
+            energy_chunk = np.zeros((chunk_size, len(classes)))
+            for class_num, _ in enumerate(classes):
+                ind_friend, = np.where(np.equal(y_train_inv, class_num))
+                ind_enemy, = np.where(np.not_equal(y_train_inv, class_num))
 
-            for class_num, test_label in enumerate(classes):
-                ind_friend, = np.where(np.equal(y_train, test_label))
-                ind_enemy, = np.where(np.not_equal(y_train, test_label))
-
-                dist_test_enemy = dist_train_test[ind_enemy].T
+                dist_test_enemy = dist_train_test[ind_enemy]
                 dist_test_friend = dist_train_test[ind_friend].T
                 dist_test_target = partition(dist_test_friend, K - 1, 1)
                 dist_test_target = np.sort(dist_test_target, axis=1)
@@ -887,19 +887,19 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                 static_energy = dist_test_target.sum(axis=1)
 
                 # hinge loss 1: from impostors to test inputs
-                dist_hinge_1 = test_margin_radii[:, None] - dist_test_enemy
-                hinge_1 = np.maximum(dist_hinge_1, 0).sum(axis=1)
+                dist_imp_in = test_margin_radii[:, None] - dist_test_enemy.T
+                hinge_1 = np.maximum(dist_imp_in, 0).sum(axis=1)
 
                 # hinge loss 2: from test inputs that are impostors
-                train_margin_enemy = train_margin_radii[ind_enemy]
-                dist_hinge_2 = train_margin_enemy[:, None] - dist_test_enemy.T
-                hinge_2 = np.maximum(dist_hinge_2, 0).sum(axis=0)
+                enemy_margin_radii = train_margin_radii[ind_enemy]
+                dist_imp_out = enemy_margin_radii[:, None] - dist_test_enemy
+                hinge_2 = np.maximum(dist_imp_out, 0).sum(axis=0)
 
-                energy[chunk, class_num] = static_energy + hinge_1 + hinge_2
+                energy_chunk[:, class_num] = static_energy + hinge_1 + hinge_2
 
-        y_pred = classes[np.argmin(energy, axis=1)]
+            y_pred[chunk] = np.argmin(energy_chunk, axis=1)
 
-        return y_pred
+        return classes[y_pred]
 
 
 ##########################
