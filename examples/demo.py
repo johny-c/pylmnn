@@ -20,21 +20,21 @@ def main(demo='shrec14'):
     data_set_name = cfg['fetch']['name']
     print('Data set name: {}'.format(data_set_name))
 
-    x_tr, x_te, y_tr, y_te = fetch_from_config(cfg)
+    X_tr, X_te, y_tr, y_te = fetch_from_config(cfg)
 
     print('{} features of dimension {}'.format(len(y_tr) + len(y_te),
-                                               x_tr.shape[1]))
+                                               X_tr.shape[1]))
 
     if cfg['pre_process'].getboolean('pca'):
         print('Cleaning data set...')
-        X = helpers.pca_fit(np.concatenate((x_tr, x_te)), var_ratio=0.95)
-        x_tr, x_te = X[:x_tr.shape[0]], X[x_tr.shape[0]:]
+        X = helpers.pca_fit(np.concatenate((X_tr, X_te)), var_ratio=0.95)
+        X_tr, X_te = X[:X_tr.shape[0]], X[X_tr.shape[0]:]
 
     bo = cfg['bayes_opt']
     if bo.getboolean('perform'):
         # Separate training and validation set
         test_size = bo.getfloat('test_size')
-        x_tr, x_va, y_tr, y_va = train_test_split(x_tr, y_tr,
+        X_tr, x_va, y_tr, y_va = train_test_split(X_tr, y_tr,
                                                   test_size=test_size,
                                                   stratify=y_tr)
 
@@ -44,12 +44,12 @@ def main(demo='shrec14'):
         params = {'verbose': 1}
         max_trials = bo.getint('max_trials', fallback=12)
         k_tr, k_te, dim_out, max_iter = bayesopt.\
-            find_hyperparams(x_tr, y_tr, x_va, y_va, params, max_trials)
+            find_hyperparams(X_tr, y_tr, x_va, y_va, params, max_trials)
         print('Found optimal LMNN hyper parameters for {} points in {}s\n'.
             format(len(y_tr), time() - t_bo))
 
         # Reconstruct full training set
-        x_tr = np.concatenate((x_tr, x_va))
+        X_tr = np.concatenate((X_tr, x_va))
         y_tr = np.concatenate((y_tr, y_va))
     else:
         hyper_params = cfg['hyper_params']
@@ -66,7 +66,7 @@ def main(demo='shrec14'):
     # Train full model
     t_train = time()
     print('Training final model...\n')
-    clf = clf.fit(x_tr, y_tr)
+    clf = clf.fit(X_tr, y_tr)
     t_train = time() - t_train
 
     # Print some statistics
@@ -90,24 +90,24 @@ def main(demo='shrec14'):
     #  Test with simple nearest neighbor classifier
     knn_clf = KNeighborsClassifier(n_neighbors=min(clf.n_neighbors_, k_te))
     t_train = time()
-    knn_clf = knn_clf.fit(x_tr, y_tr)
+    knn_clf = knn_clf.fit(X_tr, y_tr)
     t_train = time() - t_train
-    accuracy_knn = knn_clf.score(x_te, y_te)
+    accuracy_knn = knn_clf.score(X_te, y_te)
     print('\nKNN trained in: {:.4f} s'.format(t_train))
     print('kNN accuracy on test set of {} points: {:.4f}'.
-          format(x_te.shape[0], accuracy_knn))
+          format(X_te.shape[0], accuracy_knn))
 
     # Test with LMNN
-    accuracy_lmnn = clf.score(x_te, y_te)
+    accuracy_lmnn = clf.score(X_te, y_te)
     print('LMNN accuracy on test set of {} points: {:.4f}'.
-          format(x_te.shape[0], accuracy_lmnn))
+          format(X_te.shape[0], accuracy_lmnn))
 
-    y_pred_energy = clf.predict_energy(x_tr, y_tr, x_te)
+    y_pred_energy = clf.predict_energy(X_tr, y_tr, X_te)
     accuracy_lmnn_energy = np.mean(np.equal(y_pred_energy, y_te))
     print('LMNN energy based accuracy: {}'.format(accuracy_lmnn_energy))
 
     # Draw the test data before and after the linear transformation
-    plots.plot_comparison(clf.L_, x_te, y_te, dim_pref=3)
+    plots.plot_comparison(clf.L_, X_te, y_te, dim_pref=3)
     plt.show()
 
 
