@@ -10,12 +10,16 @@ Large Margin Nearest Neighbor Classification
 from __future__ import print_function
 from sklearn import warnings
 
-import numpy as np, os
-from scipy import sparse, optimize
+import numpy as np
+import os
+import time
+from scipy.optimize import fmin_l_bfgs_b
+from scipy.sparse import csr_matrix, spdiags
 
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.utils import gen_batches
+from sklearn.utils.extmath import row_norms
 from sklearn.utils.fixes import argpartition, partition, sp_version, bincount
 from sklearn.utils.random import choice, check_random_state
 from sklearn.utils.multiclass import check_classification_targets
@@ -68,7 +72,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
     tol : float, optional (default=1e-5)
         Convergence tolerance for the optimization.
 
-    max_constraints : int, optional (default=int(1e7))
+    max_constraints : int, optional (default=500000)
         Maximum number of constraints to enforce per iteration.
 
     use_sparse : bool, optional (default=True)
@@ -156,7 +160,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
     def __init__(self, L=None, warm_start=False, use_pca=True,
                  n_features_out=None, n_neighbors=3, max_iter=200, tol=1e-5,
-                 max_constraints=int(1e7), use_sparse=True,
+                 max_constraints=500000, use_sparse=True,
                  max_corrections=100, verbose=0, random_state=None, n_jobs=1):
 
         super(LargeMarginNearestNeighbor, self).__init__(
@@ -230,13 +234,13 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             optimizer_dict['maxfun'] = self.max_iter
 
         if self.verbose:
-            print('{:^9}\t{:^13}\t{:^20}'.
-                  format('Iteration', 'Function Call', 'Loss'))
-            print('-'*50)
+            print('{:^9}\t{:^13}\t{:^20}\t{:^8}'.
+                  format('Iteration', 'Function Call', 'Loss', 'Time (s)'))
+            print('-'*60)
             print('{:^9}'.format(self.n_iter_))
 
         # Call optimizer
-        L, loss, info = optimize.fmin_l_bfgs_b(**optimizer_dict)
+        L, loss, info = fmin_l_bfgs_b(**optimizer_dict)
 
         # Reshape result from optimizer
         self.L_ = L.reshape(self.n_features_out_, L.size //
@@ -331,18 +335,12 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         return probabilities
 
-    def predict_energy(self, X_train, y_train, X_test):
+    def predict_energy(self, X_test):
         """Predict the class labels for the provided data based on energy
         minimization
 
         Parameters
         ----------
-        X_train : array-like, shape (n_samples, n_features)
-            Training samples.
-
-        y_train : array-like, shape (n_samples,)
-            Training labels.
-
         X_test : array-like, shape (n_query, n_features)
             Test samples.
 
@@ -360,15 +358,10 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         # Check if fit has been called
         check_is_fitted(self, ['L_'])
 
-        X_train, y_train = check_X_y(X_train, y_train)
+        Lx_train, y_train = self._fit_X, self._y
+        X_train = Lx_train.dot(np.linalg.pinv(self.L_.T))
 
-        Lx_train = self.transform(X_train)
-        Lx_test = self.transform(X_test)
-
-        targets = self._select_target_neighbors(X_train, y_train)
-
-        y_pred = self._energy_classify_batch(Lx_train, y_train, Lx_test,
-                                             targets)
+        y_pred = self._energy_classify_batch(X_train, y_train, X_test)
 
         return y_pred
 
@@ -406,7 +399,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         check_classification_targets(y)
 
         # Store the appearing classes and the class index for each sample
-        classes, y_inversed = np.unique(y, return_inverse=True)
+        classes, y_inverse = np.unique(y, return_inverse=True)
 
         # Check number of classes > 1
         n_classes = len(classes)
@@ -415,7 +408,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                              "distinct classes, got {}.".format(n_classes))
 
         # Check every class has at least 2 samples
-        min_class_size = bincount(y_inversed).min()
+        min_class_size = bincount(y_inverse).min()
         if min_class_size < 2:
             raise ValueError('At least one class has less than 2 ({}) '
                              'training samples.'.format(min_class_size))
@@ -489,7 +482,7 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         # super(LargeMarginNearestNeighbor, self).set_params(
         # n_neighbors=self.n_neighbors_)
 
-        return X, y_inversed
+        return X, y_inverse
 
     def _init_transformer(self, X):
         """Initialize the linear transformation by setting to user specified
@@ -585,9 +578,9 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         n_samples, n_neighbors = targets.shape
         rows = np.repeat(np.arange(n_samples), n_neighbors)
         cols = targets.ravel()
-        targets_sparse = sparse.csr_matrix((np.ones(n_samples * n_neighbors),
-                                            (rows, cols)),
-                                           shape=(n_samples, n_samples))
+        targets_sparse = csr_matrix((np.ones(n_samples * n_neighbors),
+                                     (rows, cols)), shape=(n_samples,
+                                                           n_samples))
 
         return sum_outer_products(X, targets_sparse)
 
@@ -627,13 +620,14 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         n_samples, n_features_in = X.shape
         self.L_ = L.reshape(self.n_features_out_, n_features_in)
+
+        tic = time.time()
         Lx = self.transform(X, check=False)
 
         # Compute distances to target neighbors under L (plus margin)
         dist_tn = np.zeros((n_samples, self.n_neighbors_))
         for k in range(self.n_neighbors_):
-            dist_tn[:, k] = np.sum(np.square(Lx - Lx[targets[:, k]]),
-                                   axis=1) + 1
+            dist_tn[:, k] = row_norms(Lx - Lx[targets[:, k]], squared=True) + 1
 
         # Compute distances to impostors under L
         margin_radii = np.add(dist_tn[:, -1], 2)
@@ -642,22 +636,22 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                                                     use_sparse=self.use_sparse)
 
         loss = 0
-        A0 = sparse.csr_matrix((n_samples, n_samples))
+        A0 = csr_matrix((n_samples, n_samples))
         for k in reversed(range(self.n_neighbors_)):
             loss1 = np.maximum(dist_tn[imp1, k] - dist_imp, 0)
             act, = np.where(loss1 != 0)
-            A1 = sparse.csr_matrix((2*loss1[act], (imp1[act], imp2[act])),
-                                   (n_samples, n_samples))
+            A1 = csr_matrix((2*loss1[act], (imp1[act], imp2[act])),
+                            (n_samples, n_samples))
 
             loss2 = np.maximum(dist_tn[imp2, k] - dist_imp, 0)
             act, = np.where(loss2 != 0)
-            A2 = sparse.csr_matrix((2*loss2[act], (imp1[act], imp2[act])),
-                                   (n_samples, n_samples))
+            A2 = csr_matrix((2*loss2[act], (imp1[act], imp2[act])),
+                            (n_samples, n_samples))
 
-            vals = np.squeeze(np.asarray(A2.sum(0) + A1.sum(1).T))
-            A0 = A0 - A1 - A2 + sparse.csr_matrix(
-                     (vals, (range(n_samples), targets[:, k])),
-                     (n_samples, n_samples))
+            values = np.squeeze(np.asarray(A2.sum(0) + A1.sum(1).T))
+            A0 = A0 - A1 - A2 + csr_matrix((values,
+                                            (range(n_samples), targets[:, k])),
+                                           (n_samples, n_samples))
             loss = loss + np.sum(loss1 ** 2) + np.sum(loss2 ** 2)
 
         grad_new = sum_outer_products(X, A0)
@@ -665,10 +659,11 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
         grad *= 2
         loss = loss + (grad_static * (self.L_.T.dot(self.L_))).sum()
 
+        toc = time.time()
         self.n_funcalls_ += 1
         if self.verbose:
-            print('{:9}\t{:^13}\t{:>18,.4f}'.format('', self.n_funcalls_,
-                                                    loss))
+            print('{:9}\t{:^13}\t{:>20,.4f}\t{:8.2f}'
+                  .format('', self.n_funcalls_, loss, toc-tic))
 
         if not os.path.exists('ires'):
             os.mkdir('ires')
@@ -707,40 +702,41 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         if use_sparse:
             # Initialize impostors matrix
-            impostors_sp = sparse.csr_matrix((n_samples, n_samples),
-                                             dtype=np.int8)
+            impostors_sp = csr_matrix((n_samples, n_samples), dtype=np.int8)
 
             for class_num in range(len(self.classes_) - 1):
-                imp1, imp2 = [], []
                 ind_in, = np.where(np.equal(y, class_num))
                 ind_out, = np.where(np.greater(y, class_num))
-
+                # print('\nFind imps for class {}'.format(class_num))
                 # Subdivide ind_out x ind_in to chunks of a size that is
                 # fitting in memory
                 ii, jj = self._find_impostors_batch(Lx[ind_out], Lx[ind_in],
                                                     margin_radii[ind_out],
                                                     margin_radii[ind_in])
+
                 if len(ii):
-                    imp1.extend(ind_out[ii])
-                    imp2.extend(ind_in[jj])
-                    new_imps = sparse.csr_matrix(([1] * len(imp1),
-                                                  (imp1, imp2)),
-                                                 shape=(n_samples, n_samples),
-                                                 dtype=np.int8)
+                    # sample constraints if they are too many
+                    if len(ii) > self.max_constraints:
+                        print('Sampling constraints...')
+                        t_sample = time.time()
+                        dims = (len(ind_out), len(ind_in))
+                        ind = np.ravel_multi_index((ii, jj), dims=dims)
+                        ind_samp = choice(ind, self.max_constraints,
+                                          replace=False,
+                                          random_state=self.random_state_)
+                        ii, jj = np.unravel_index(ind_samp, dims=dims)
+                        print('Sampled constraints in {:.4f}'.format(
+                            time.time() - t_sample))
+
+                    imp1 = ind_out[ii]
+                    imp2 = ind_in[jj]
+                    new_imps = csr_matrix(([1] * len(imp1), (imp1, imp2)),
+                                          shape=(n_samples, n_samples),
+                                          dtype=np.int8)
                     impostors_sp = impostors_sp + new_imps
 
             imp1, imp2 = impostors_sp.nonzero()
-            # subsample constraints if they are too many
-            if impostors_sp.nnz > self.max_constraints:
-                # numpy.RandomState.choice raises AttributeError:
-                # 'mtrand.RandomState' object has no attribute 'choice'
-                # choice does not exist for numpy versions < (1, 7, 0)
-                ind_subsample = choice(impostors_sp.nnz, self.max_constraints,
-                                       replace=False,
-                                       random_state=self.random_state_)
-
-                imp1, imp2 = imp1[ind_subsample], imp2[ind_subsample]
-
+            # dist = row_norms(Lx[imp1] - Lx[imp2], True)
             dist = pairs_distances_batch(Lx, imp1, imp2)
         else:
             # Initialize impostors vectors
@@ -754,28 +750,31 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
                 ii, jj, dd = self._find_impostors_batch(
                     Lx[ind_out], Lx[ind_in], margin_radii[ind_out],
                     margin_radii[ind_in], return_dist=True)
+
                 if len(ii):
+                    # sample constraints if they are too many
+                    if len(ii) > self.max_constraints:
+                        print('Sampling constraints...')
+                        dims = (len(ind_out), len(ind_in))
+                        ind = np.ravel_multi_index((ii, jj), dims=dims)
+                        ind_samp = choice(ind, self.max_constraints,
+                                          replace=False,
+                                          random_state=self.random_state_)
+                        ii, jj = np.unravel_index(ind_samp, dims=dims)
+
                     imp1.extend(ind_out[ii])
                     imp2.extend(ind_in[jj])
-                    dist.extend(dd)
+                    # dist.extend(dd)
 
-            ind_unique = unique_pairs(imp1, imp2, n_samples)
-
-            # subsample constraints if they are too many
-            if len(ind_unique) > self.max_constraints:
-                ind_unique = choice(ind_unique, self.max_constraints,
-                                    replace=False,
-                                    random_state=self.random_state_)
-
-            imp1 = np.asarray(imp1)[ind_unique]
-            imp2 = np.asarray(imp2)[ind_unique]
-            dist = np.asarray(dist)[ind_unique]
+            imp1, imp2 = np.asarray(imp1), np.asarray(imp2)
+            # dist = np.asarray(dist)
+            dist = pairs_distances_batch(Lx, imp1, imp2)
 
         return imp1, imp2, dist
 
     @staticmethod
     def _find_impostors_batch(X1, X2, margin_radii1, margin_radii2,
-                              return_dist=False, batch_size=500):
+                              return_dist=False, batch_size=5000):
         """Find impostor pairs in chunks to avoid large memory usage
 
         Parameters
@@ -810,44 +809,46 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
 
         n_samples1 = X1.shape[0]
         imp1, imp2, dist = [], [], []
+
+        # X2 squared norm stays constant, so pre-compute it to get a speed-up
+        X2_norm_squared = row_norms(X2, squared=True)
         for chunk in gen_batches(n_samples1, batch_size):
-            dist_out_in = euclidean_distances(X1[chunk], X2, squared=True)
+            dist_out_in = euclidean_distances(X1[chunk], X2, squared=True,
+                                              Y_norm_squared=X2_norm_squared)
+
             i1, j1 = np.where(dist_out_in < margin_radii1[chunk, None])
             i2, j2 = np.where(dist_out_in < margin_radii2[None, :])
-            if len(i1):
-                imp1.extend(i1 + chunk.start)
-                imp2.extend(j1)
+
+            ind1 = np.ravel_multi_index((i1, j1), dist_out_in.shape)
+            ind2 = np.ravel_multi_index((i2, j2), dist_out_in.shape)
+            ind = np.unique(np.concatenate((ind1, ind2)))
+
+            if len(ind):
+                ii, jj = np.unravel_index(ind, dist_out_in.shape)
+                imp1.extend(ii + chunk.start)
+                imp2.extend(jj)
                 if return_dist:
-                    dist.extend(dist_out_in[i1, j1])
-            if len(i2):
-                imp1.extend(i2 + chunk.start)
-                imp2.extend(j2)
-                if return_dist:
-                    dist.extend(dist_out_in[i2, j2])
+                    dist.extend(dist_out_in[ii, jj])
 
         if return_dist:
             return imp1, imp2, dist
         else:
             return imp1, imp2
 
-    def _energy_classify_batch(self, Lx_train, y_train, Lx_test, targets,
-                               batch_size=500):
+    def _energy_classify_batch(self, X_train, y_train, X_test, batch_size=500):
         """Assign labels to test samples based on energy minimization in
         chunks to avoid large memory usage.
 
         Parameters
         ----------
-        Lx_train : array, shape (n_samples_train, n_features)
-            An array of transformed data samples.
+        X_train : array, shape (n_samples_train, n_features)
+            The array of the original training samples.
 
         y_train : array, shape (n_samples_train,)
-            An array of data labels.
+            The corresponding training labels.
 
-        Lx_test : array, shape (n_samples_test, n_features)
-            Transformed data samples where n_samples2 < n_samples1.
-
-        targets : array, shape (n_samples_train, n_neighbors)
-            The nearest neighbors of each training sample.
+        X_test : array, shape (n_samples_test, n_features)
+            Test data samples.
 
         batch_size : int, optional (default=500)
             The size of each chunk of ``X1`` to compute distances to.
@@ -858,48 +859,62 @@ class LargeMarginNearestNeighbor(KNeighborsClassifier):
             Predicted labels.
         """
 
-        n_samples_train = Lx_train.shape[0]
+        n_samples_train = X_train.shape[0]
+        n_samples_test = X_test.shape[0]
+
         if n_samples_train >= 50000:
             batch_size = batch_size // 2
-        n_samples_test = Lx_test.shape[0]
+        else:
+            batch_size = 5000
+
+        targets = self._select_target_neighbors(X_train, y_train)
+
+        Lx_tr = self.transform(X_train)
+        Lx_test = self.transform(X_test)
+
         classes, y_train_inv = np.unique(y_train, return_inverse=True)
-        y_pred = np.empty(n_samples_test, dtype=int)
+        n_classes = len(classes)
+        y_pred = np.zeros(n_samples_test)
 
         K = self.n_neighbors_
-        train_margin_radii = np.sum(
-                np.square(Lx_train - Lx_train[targets[:, K-1]]), axis=1) + 1
+        dist_train_tn = np.zeros((n_samples_train, K))
+        for k in range(K):
+            dist_train_tn[:, k] = row_norms(Lx_tr - Lx_tr[targets[:, k]],
+                                            squared=True) + 1
+
         for chunk in gen_batches(n_samples_test, batch_size):
-            dist_train_test = euclidean_distances(Lx_train, Lx_test[chunk],
+            dist_train_test = euclidean_distances(Lx_tr, Lx_test[chunk],
                                                   squared=True)
             chunk_size = chunk.stop - chunk.start
-            energy_chunk = np.zeros((chunk_size, len(classes)))
-            for class_num, _ in enumerate(classes):
-                ind_friend, = np.where(np.equal(y_train_inv, class_num))
-                ind_enemy, = np.where(np.not_equal(y_train_inv, class_num))
+            energy_chunk = np.zeros((chunk_size, n_classes))
+            for class_num, test_label in enumerate(classes):
+                ind_friend, = np.where(np.equal(y_train, test_label))
+                ind_enemy, = np.where(np.not_equal(y_train, test_label))
 
-                dist_test_enemy = dist_train_test[ind_enemy]
-                dist_test_friend = dist_train_test[ind_friend].T
-                dist_test_target = partition(dist_test_friend, K - 1, 1)
-                dist_test_target = np.sort(dist_test_target, axis=1)
-                test_margin_radii = dist_test_target[:, -1] + 1
+                dist_enemy_tn = dist_train_tn[ind_enemy]
+                dist_test_enemy = dist_train_test[ind_enemy].T
+                dist_test_tn = partition(dist_train_test[ind_friend].T, K-1, 1)
+                dist_test_tn = np.sort(dist_test_tn, axis=1)
 
                 # static term: distance to target neighbors
-                static_energy = dist_test_target.sum(axis=1)
+                energy_chunk[:, class_num] = dist_test_tn.sum(axis=1)
 
-                # hinge loss 1: from impostors to test inputs
-                dist_imp_in = test_margin_radii[:, None] - dist_test_enemy.T
-                hinge_1 = np.maximum(dist_imp_in, 0).sum(axis=1)
+                for k in range(K):
+                    # hinge loss 1: from test inputs that are impostors
+                    dist_enemy_tn_k = dist_enemy_tn[:, k]
+                    dist_hinge_1 = dist_enemy_tn_k[:, None] - dist_test_enemy.T
+                    hinge_1 = np.maximum(dist_hinge_1, 0).sum(axis=0)
+                    energy_chunk[:, class_num] += hinge_1
 
-                # hinge loss 2: from test inputs that are impostors
-                enemy_margin_radii = train_margin_radii[ind_enemy]
-                dist_imp_out = enemy_margin_radii[:, None] - dist_test_enemy
-                hinge_2 = np.maximum(dist_imp_out, 0).sum(axis=0)
+                    # hinge loss 2: from impostors to test inputs
+                    dist_test_tn_k = dist_test_tn[:, k]
+                    dist_hinge_2 = dist_test_tn_k[:, None] - dist_test_enemy
+                    hinge_2 = np.maximum(dist_hinge_2, 0).sum(axis=1)
+                    energy_chunk[:, class_num] += hinge_2
 
-                energy_chunk[:, class_num] = static_energy + hinge_1 + hinge_2
+                y_pred[chunk] = np.argmin(energy_chunk, axis=1)
 
-            y_pred[chunk] = np.argmin(energy_chunk, axis=1)
-
-        return classes[y_pred]
+        return y_pred
 
 
 ##########################
@@ -970,14 +985,14 @@ def sum_outer_products(X, weights):
 
     weights_sym = weights + weights.T
     n_samples = weights_sym.shape[0]
-    diag = sparse.spdiags(weights_sym.sum(axis=0), 0, n_samples, n_samples)
+    diag = spdiags(weights_sym.sum(axis=0), 0, n_samples, n_samples)
     laplacian = diag.tocsr() - weights_sym
     sum_outer_prods = X.T.dot(laplacian.dot(X))
 
     return sum_outer_prods
 
 
-def pairs_distances_batch(X, ind_a, ind_b, batch_size=500):
+def pairs_distances_batch(X, ind_a, ind_b, batch_size=5000):
     """Equivalent to  np.sum(np.square(X[ind_a] - X[ind_b]), axis=1)
 
     Parameters
@@ -1003,40 +1018,9 @@ def pairs_distances_batch(X, ind_a, ind_b, batch_size=500):
     n_indices = len(ind_a)
     dist = np.zeros(n_indices)
     for chunk in gen_batches(n_indices, batch_size):
-        dist[chunk] = np.sum(np.square(X[ind_a[chunk]] - X[ind_b[chunk]]),
-                             axis=1)
+        dist[chunk] = row_norms(X[ind_a[chunk]] - X[ind_b[chunk]], True)
 
     return dist
-
-
-def unique_pairs(ind_a, ind_b, n_samples):
-    """Find the unique pairs contained in zip(ind_a, ind_b)
-
-    Parameters
-    ----------
-    ind_a : list, length = n_indices
-        Indices of reference samples.
-
-    ind_b : list, length = n_indices
-        Indices of impostor samples.
-
-    n_samples : int
-        The total number of samples (= maximum sample index + 1).
-
-    Returns
-    -------
-    ind_unique: array, shape (n_unique_pairs,)
-         The indices of unique pairs contained in zip(ind_a, ind_b).
-    """
-
-    # First generate a hash array
-    h = np.array([i * n_samples + j for i, j in zip(ind_a, ind_b)],
-                 dtype=np.uint32)
-
-    # Get the indices of the unique elements in the hash array
-    _, ind_unique = np.unique(h, return_index=True)
-
-    return ind_unique
 
 
 if __name__ == '__main__':

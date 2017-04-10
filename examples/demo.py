@@ -10,11 +10,11 @@ from pylmnn import bayesopt, lmnn, helpers, plots
 from data_fetch import fetch_from_config
 
 
-def main(demo='shrec14'):
+def main(demo='letters'):
 
     if demo not in ['shrec14', 'mnist', 'letters', 'usps', 'isolet', 'faces']:
-        raise FileNotFoundError('Unknown dataset {}! Exiting.'.format(demo))
-
+#        raise FileNotFoundError('Unknown dataset {}! Exiting.'.format(demo))
+        pass
     cfg = ConfigParser()
     cfg.read(demo + '.cfg')
     data_set_name = cfg['fetch']['name']
@@ -34,7 +34,7 @@ def main(demo='shrec14'):
     if bo.getboolean('perform'):
         # Separate training and validation set
         test_size = bo.getfloat('test_size')
-        X_tr, x_va, y_tr, y_va = train_test_split(X_tr, y_tr,
+        X_tr, X_va, y_tr, y_va = train_test_split(X_tr, y_tr,
                                                   test_size=test_size,
                                                   stratify=y_tr)
 
@@ -44,12 +44,12 @@ def main(demo='shrec14'):
         params = {'verbose': 1}
         max_trials = bo.getint('max_trials', fallback=12)
         k_tr, k_te, dim_out, max_iter = bayesopt.\
-            find_hyperparams(X_tr, y_tr, x_va, y_va, params, max_trials)
+            find_hyperparams(X_tr, y_tr, X_va, y_va, params, max_trials)
         print('Found optimal LMNN hyper parameters for {} points in {}s\n'.
             format(len(y_tr), time() - t_bo))
 
         # Reconstruct full training set
-        X_tr = np.concatenate((X_tr, x_va))
+        X_tr = np.concatenate((X_tr, X_va))
         y_tr = np.concatenate((y_tr, y_va))
     else:
         hyper_params = cfg['hyper_params']
@@ -61,7 +61,7 @@ def main(demo='shrec14'):
     verbose = cfg['params'].getint('verbose', fallback=1)
     LMNN = lmnn.LargeMarginNearestNeighbor
     clf = LMNN(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out,
-               verbose=verbose)
+               verbose=verbose, n_jobs=-1, use_sparse=True, random_state=42)
 
     # Train full model
     t_train = time()
@@ -76,7 +76,8 @@ def main(demo='shrec14'):
     print('Average time per function call: {:.4f} s'.
           format(t_train / clf.details_['funcalls']))
     print('Training loss: {:,}'.format(clf.details_['loss']))
-    print('Gradient at the minimum: {}\n'.format(clf.details_['grad']))
+    grad_norm = np.linalg.norm(clf.details_['grad'])
+    print('Gradient norm at the minimum: {}\n'.format(grad_norm))
     termination_reasons = ['convergence', 'exceeded max. number of iterations '
                                           'or function evaluations']
     warnflag = clf.details_['warnflag']
@@ -102,14 +103,13 @@ def main(demo='shrec14'):
     print('LMNN accuracy on test set of {} points: {:.4f}'.
           format(X_te.shape[0], accuracy_lmnn))
 
-    y_pred_energy = clf.predict_energy(X_tr, y_tr, X_te)
+    y_pred_energy = clf.predict_energy(X_te)
     accuracy_lmnn_energy = np.mean(np.equal(y_pred_energy, y_te))
     print('LMNN energy based accuracy: {}'.format(accuracy_lmnn_energy))
 
     # Draw the test data before and after the linear transformation
     plots.plot_comparison(clf.L_, X_te, y_te, dim_pref=3)
     plt.show()
-
 
 if __name__ == '__main__':
     main(str(sys.argv[1])) if len(sys.argv) > 1 else main()
