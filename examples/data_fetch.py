@@ -45,6 +45,7 @@ def fetch_from_config(cfg, split=True):
     else:
         return X, y
 
+
 def fetch_load_usps(data_dir=None):
     path = os.path.join(get_data_home(data_dir), 'mldata', 'USPS.mat')
 

@@ -1,0 +1,49 @@
+
+
+usps:
+  n_splits : 1
+  lmnn_params:
+    n_neighbors : 14
+  #  k_te : 4
+    n_features_out : 20
+    max_iter : 187
+
+mnist:
+  n_splits : 1
+  lmnn_params:
+    n_neighbors : 3
+  #  k_te : 3
+    n_features_out : 164
+    max_iter : 35
+
+olivetti_faces:
+  n_splits : 100
+  lmnn_params:
+    n_neighbors : 3
+  #  k_te : 2
+    n_features_out : 200
+    max_iter : 88
+
+letters:
+  n_splits : 10
+  lmnn_params:
+    n_neighbors : 1
+  #  k_te : 1
+    n_features_out : 16
+    max_iter : 82
+
+isolet:
+  n_splits : 1
+  lmnn_params:
+    n_neighbors : 15
+  #  k_te : 7
+    n_features_out : 172
+    max_iter : 180
+
+iris:
+  n_splits : 100
+  lmnn_params:
+    n_neighbors : 3
+  #  k_te : 7
+#    n_features_out : 172
+    max_iter : 100
