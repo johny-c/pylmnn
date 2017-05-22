@@ -1,13 +1,26 @@
 import os
-import sys
 import csv
-import yaml
 import numpy as np
 from sklearn.datasets import get_data_home, fetch_olivetti_faces, \
     fetch_mldata, load_iris
 from sklearn.model_selection import train_test_split
-from sklearn.neighbors import KNeighborsClassifier as KNN
-from sklearn.neighbors.lmnn import LargeMarginNearestNeighbor as LMNN
+
+
+def fetch_letters(data_dir=None):
+    path = os.path.join(get_data_home(data_dir), 'letter-recognition.data')
+
+    if not os.path.exists(path):
+        from urllib import request
+        url = 'https://archive.ics.uci.edu/ml/machine-learning-databases/letter-recognition/letter-recognition.data'
+        print('Downloading letter-recognition dataset from {}...'.format(url))
+        request.urlretrieve(url=url, filename=path)
+    else:
+        print('Found letter-recognition in {}!'.format(path))
+
+    y = np.loadtxt(path, dtype=str, usecols=(0), delimiter=',')
+    X = np.loadtxt(path, usecols=range(1, 17), delimiter=',')
+
+    return X, y
 
 
 def decompress_z(fname_in, fname_out=None):
@@ -137,13 +150,22 @@ def fetch_data(dataset, split=True):
             return X_train, y_train, X_test, y_test
         else:
             return data.data, data.target
+    elif dataset == 'letters':
+        X, y = fetch_letters(True)
+        if split:
+            X_train, X_test, y_train, y_test = train_test_split(X, y,
+                                                                stratify=y,
+                                                                test_size=0.3)
+            return X_train, y_train, X_test, y_test
+        else:
+            return X, y
     elif dataset == 'iris':
         data = load_iris(True)
-        X_train, X_test, y_train, y_test = train_test_split(data.data,
-                                                            data.target,
-                                                      stratify=data.target,
-                                                      test_size=0.3)
         if split:
+            X_train, X_test, y_train, y_test = train_test_split(data.data,
+                                                                data.target,
+                                                                stratify=data.target,
+                                                                test_size=0.3)
             return X_train, y_train, X_test, y_test
         else:
             return data.data, data.target
@@ -158,49 +180,3 @@ def fetch_data(dataset, split=True):
     else:
         raise NotImplementedError('Unknown dataset {}!'.format(dataset))
 
-
-def benchmark(dataset):
-
-    with open('lmnn_params.yml', 'r') as config_file:
-        params_dict = yaml.load(config_file)
-
-    datasets = params_dict.keys()
-
-    if dataset not in datasets:
-        raise NotImplementedError('Currently supported:\n{}'.format(datasets))
-
-    params = params_dict[dataset]
-    n_splits = params.get('n_splits', 1)
-    lmnn_params = params['lmnn_params']
-
-    if n_splits == 1:
-        X_train, y_train, X_test, y_test = fetch_data(dataset)
-    else:
-        X, y = fetch_data(dataset, split=False)
-
-    for i in range(n_splits):
-
-
-
-def main(argv):
-    # usage python3 lmnn_demo_usps.py isolet
-
-    dataset = argv[1] if len(argv) > 1 else 'isolet'
-    X_train, y_train, X_test, y_test = fetch_data(dataset)
-
-    knn_clf = KNN(n_neighbors=3)
-    knn_clf.fit(X_train, y_train)
-    knn_err = 1. - knn_clf .score(X_test, y_test)
-    print('KNN Test error on {}: {:5.2f}%'.format(dataset, knn_err*100))
-
-    with open('lmnn_params.yml', 'r') as config_file:
-        lmnn_params = yaml.load(config_file)
-    clf = LMNN(verbose=1, **lmnn_params[dataset])
-    clf.fit(X_train, y_train)
-    lmnn_err = 1. - clf.score(X_test, y_test)
-    print('LMNN Test error on {}: {:5.2f}%'.format(dataset, lmnn_err*100))
-    print('KNN  Test error on {}: {:5.2f}%'.format(dataset, knn_err * 100))
-
-
-if __name__ == '__main__':
-    main(sys.argv)
