@@ -151,7 +151,7 @@ def fetch_data(dataset, split=True):
         else:
             return data.data, data.target
     elif dataset == 'letters':
-        X, y = fetch_letters(True)
+        X, y = fetch_letters()
         if split:
             X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                                 stratify=y,
@@ -160,7 +160,7 @@ def fetch_data(dataset, split=True):
         else:
             return X, y
     elif dataset == 'iris':
-        data = load_iris(True)
+        data = load_iris()
         if split:
             X_train, X_test, y_train, y_test = train_test_split(data.data,
                                                                 data.target,
