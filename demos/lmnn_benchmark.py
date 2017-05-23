@@ -1,3 +1,4 @@
+import os
 import sys
 from time import time
 import yaml
@@ -10,6 +11,8 @@ from sklearn.neighbors.lmnn import LargeMarginNearestNeighbor as LMNN
 from tabulate import tabulate
 
 
+CWD = os.path.split(__file__)[0]
+CONFIG_FILE = os.path.join(os.path.join(CWD, 'dataset_params.yml'))
 METRICS = ['knn error', 'knn runtime', 'LMNN error', 'LMNN runtime']
 
 
@@ -24,7 +27,7 @@ def single_run(X_train, y_train, X_test, y_test, lmnn_params, dataset, rng):
     t_knn = time()
     knn_err = 1. - knn_clf .score(X_test, y_test)
     t_knn = time() - t_knn
-    print('KNN Test error on {}: {:5.2f}% in {}s'.format(dataset,
+    print('KNN Test error on {}: {:5.2f}% in {:7.2f}s'.format(dataset,
                                                           knn_err*100, t_knn))
 
     clf = LMNN(verbose=1, random_state=rng, **lmnn_params)
@@ -42,7 +45,7 @@ def single_run(X_train, y_train, X_test, y_test, lmnn_params, dataset, rng):
 
 def benchmark_single(dataset):
 
-    with open('dataset_params.yml', 'r') as config_file:
+    with open(CONFIG_FILE, 'r') as config_file:
         params = yaml.load(config_file)
 
     datasets = params.keys()
@@ -75,13 +78,7 @@ def benchmark_single(dataset):
         if dataset_params.get('pca', False):
             print('Computing principal components...')
             n_features_out = lmnn_params['n_features_out']
-            # if dataset == 'olivetti_faces':
-            #     n_features_out += 5
             pca = PCA(n_components=n_features_out)
-            # if dataset == 'olivetti_faces':
-            #     pca.fit(X)
-            #     X = X.dot(pca.components_[5:].T)
-            # else:
             X = pca.fit_transform(X)
 
         for i in range(n_splits):
@@ -93,14 +90,10 @@ def benchmark_single(dataset):
                                      lmnn_params, dataset, i)
             dataset_stats.append(stats_split)
 
-    # if n_splits > 1:
-    # compute mean and std
+
     stats = np.asarray(dataset_stats)
     stats_mean = np.mean(stats, axis=0)
     stats_std  = np.std(stats, axis=0)
-    # else:
-    #     stats_mean = np.asarray(dataset_stats)
-    #     stats_std = np.zeros_like(stats_mean)
 
     stats_mean = {METRICS[i]: stats_mean[i] for i in range(len(METRICS))}
     stats_std = {METRICS[i]: stats_std[i] for i in range(len(METRICS))}
@@ -109,7 +102,6 @@ def benchmark_single(dataset):
 
 
 def print_results(benchmark_stats):
-
 
     headers = ['Dataset', 'n_splits'] + METRICS
     table = []
@@ -130,21 +122,22 @@ def print_results(benchmark_stats):
 
         table.append(row)
 
-    print(tabulate(table, headers, tablefmt='grid'))
+    print(tabulate(table, headers, tablefmt='pipe'))
 
 
 def main(argv):
-    # usage python3 lmnn_demo.py dataset_name
+    # usage python3 lmnn_benchmark.py `dataset_name`
     dataset = argv[1] if len(argv) > 1 else 'iris'
 
     benchmark_stats = {}
-    with open('dataset_params.yml', 'r') as config_file:
+    with open(CONFIG_FILE, 'r') as config_file:
         dataset_params = yaml.load(config_file)
 
     if dataset == 'all':
         for dataset in dataset_params:
-            benchmark_stats[dataset] = benchmark_single(dataset)
-            print_results(benchmark_stats)
+            if dataset == 'iris' or dataset == 'olivetti_faces':
+                benchmark_stats[dataset] = benchmark_single(dataset)
+                print_results(benchmark_stats)
     else:
         benchmark_stats[dataset] = benchmark_single(dataset)
         print_results(benchmark_stats)
@@ -154,9 +147,8 @@ if __name__ == '__main__':
     main(sys.argv)
 
 
-#
 # | Dataset        |   n_splits | knn error     | knn fittime   | LMNN error   | LMNN fittime    |
-# |----------------|------------|---------------|---------------|--------------|-----------------|
+# |:---------------|-----------:|--------------:|--------------:|-------------:|----------------:|
 # | iris           |        100 |  3.29 ( 2.17) | 0.00 ( 0.00)  | 2.98 ( 2.11) |  0.25 ( 0.03)   |
 # | olivetti_faces |         10 | 17.58 ( 3.81) | 0.00 ( 0.00)  | 5.75 ( 1.31) |  2.39 ( 0.32)   |
 # | letters        |         10 |  4.54 ( 0.27) | 0.02 ( 0.00)  | 3.65 ( 0.18) | 54.43 ( 4.43)   |
