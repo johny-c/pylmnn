@@ -127,7 +127,7 @@ def fetch_usps(save_dir=None):
 
 def fetch_mnistPCA(data_dir=None):
 
-    path = os.path.join(get_data_home(data_dir), 'mldata', 'mnistPCA.mat')
+    path = os.path.join(get_data_home(data_dir), 'mnistPCA.mat')
     if not os.path.exists(path):
         from urllib import request
         url = 'https://dl.dropboxusercontent.com/u/4284723/DATA/mnistPCA.mat'
