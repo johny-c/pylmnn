@@ -14,7 +14,15 @@ mnist:
   lmnn_params:
     n_neighbors : 3
     n_features_out : 164
-    max_iter : 26
+    max_iter : 35
+
+mnistPCA:
+  n_splits : 1
+  pca : False
+  lmnn_params:
+    n_neighbors : 3
+    n_features_out : 164
+    max_iter : 35
 
 olivetti_faces:
   n_splits : 10

@@ -1,6 +1,7 @@
 import os
 import csv
 import numpy as np
+from scipy.io import loadmat
 from sklearn.datasets import get_data_home, fetch_olivetti_faces, \
     fetch_mldata, load_iris
 from sklearn.model_selection import train_test_split
@@ -124,6 +125,25 @@ def fetch_usps(save_dir=None):
     return X_train, y_train, X_test, y_test
 
 
+def fetch_mnistPCA(data_dir=None):
+
+    path = os.path.join(get_data_home(data_dir), 'mldata', 'mnistPCA.mat')
+    if not os.path.exists(path):
+        from urllib import request
+        url = 'https://dl.dropboxusercontent.com/u/4284723/DATA/mnistPCA.mat'
+        print('Downloading mnistPCA dataset from {}...'.format(url))
+        request.urlretrieve(url=url, filename=path)
+    else:
+        print('Found mnistPCA.mat in {}!'.format(path))
+
+    mnist_mat = loadmat(path)
+
+    X_train, y_train = mnist_mat['xTr'], mnist_mat['yTr']
+    X_test, y_test = mnist_mat['xTe'], mnist_mat['yTe']
+
+    return X_train.T, y_train.ravel(), X_test.T, y_test.ravel()
+
+
 def fetch_data(dataset, split=True):
 
     if dataset == 'isolet':
@@ -177,6 +197,8 @@ def fetch_data(dataset, split=True):
         X_train, X_test = X[:60000], X[60000:]
         y_train, y_test = data.target[:60000], data.target[60000:]
         return X_train, y_train, X_test, y_test
+    elif dataset == 'mnistPCA':
+        return fetch_mnistPCA()
     else:
         raise NotImplementedError('Unknown dataset {}!'.format(dataset))
 

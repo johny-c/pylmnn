@@ -126,7 +126,7 @@ def print_results(benchmark_stats):
 
 
 def main(argv):
-    # usage python3 lmnn_benchmark.py `dataset_name`
+    # usage: python3 lmnn_benchmark.py `dataset_name`
     dataset = argv[1] if len(argv) > 1 else 'iris'
 
     benchmark_stats = {}
@@ -135,9 +135,8 @@ def main(argv):
 
     if dataset == 'all':
         for dataset in dataset_params:
-            if dataset == 'iris' or dataset == 'olivetti_faces':
-                benchmark_stats[dataset] = benchmark_single(dataset)
-                print_results(benchmark_stats)
+            benchmark_stats[dataset] = benchmark_single(dataset)
+            print_results(benchmark_stats)
     else:
         benchmark_stats[dataset] = benchmark_single(dataset)
         print_results(benchmark_stats)
