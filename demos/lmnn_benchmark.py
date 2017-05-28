@@ -16,6 +16,16 @@ CONFIG_FILE = os.path.join(os.path.join(CWD, 'dataset_params.yml'))
 METRICS = ['knn error', 'knn runtime', 'LMNN error', 'LMNN runtime']
 
 
+# from lmnn_benchmark import benchmark_single, print_results
+# %load_ext memory_profiler
+#
+# %time
+# %%memit -r 1
+#
+# stats = benchmark_single('mnistPCA')
+# print_results({'mnistPCA': stats})
+
+
 def single_run(X_train, y_train, X_test, y_test, lmnn_params, dataset, rng):
 
     knn_clf = KNN(n_neighbors=lmnn_params.get('n_neighbors', 1))
@@ -50,7 +60,9 @@ def benchmark_single(dataset):
 
     datasets = params.keys()
     if dataset not in datasets:
-        raise NotImplementedError('Currently supported:\n{}'.format(datasets))
+        raise NotImplementedError('{} is not supported.\n'
+                                  'Currently supported datasets:\n{}'
+                                  .format(dataset, datasets))
 
     dataset_params = params[dataset]
     n_splits = dataset_params.get('n_splits', 1)
