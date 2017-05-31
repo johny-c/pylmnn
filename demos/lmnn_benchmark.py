@@ -16,19 +16,9 @@ CONFIG_FILE = os.path.join(os.path.join(CWD, 'dataset_params.yml'))
 METRICS = ['knn error', 'knn runtime', 'LMNN error', 'LMNN runtime']
 
 
-# from lmnn_benchmark import benchmark_single, print_results
-# %load_ext memory_profiler
-#
-# %time
-# %%memit -r 1
-#
-# stats = benchmark_single('mnistPCA')
-# print_results({'mnistPCA': stats})
-
-
 def single_run(X_train, y_train, X_test, y_test, lmnn_params, dataset, rng):
 
-    knn_clf = KNN(n_neighbors=lmnn_params.get('n_neighbors', 1))
+    knn_clf = KNN(n_neighbors=lmnn_params.get('n_neighbors', 1), n_jobs=-1)
     tic_knn = time()
     knn_clf.fit(X_train, y_train)
     t_knn = time() - tic_knn
@@ -166,3 +156,4 @@ if __name__ == '__main__':
 # | usps           |          1 |  6.73 ( 0.00) | 0.01 ( 0.00)  | 5.73 ( 0.00) |  67.47 ( 0.00)  |
 # | isolet         |          1 |  8.21 ( 0.00) | 0.04 ( 0.00)  | 3.66 ( 0.00) |  568.48 ( 0.00) |
 # | mnist          |          1 |  2.81 ( 0.00) | 0.35 ( 0.00)  | 2.14 ( 0.00) | 4725.09 ( 0.00) |
+# | mnistPCA       |          1 |  2.30 ( 0.00) | 156.61 (0.00) | 1.84 ( 0.00) | 4661.65 ( 0.00) |
