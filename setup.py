@@ -42,8 +42,8 @@ if __name__ == '__main__':
         install_requires=['numpy>=1.11',
                           'scipy>=0.18',
                           'scikit_learn>=0.18',
-                          'GPyOpt>=1.0.3',
                           'matplotlib>=1.5.3'],
+
 
         test_suite='nose.collector',
         tests_require=['nose', 'nose-cover3']

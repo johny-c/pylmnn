@@ -30,11 +30,13 @@ def single_run(X_train, y_train, X_test, y_test, lmnn_params, dataset, rng):
     print('KNN Test error on {}: {:5.2f}% in {:7.2f}s'.format(dataset,
                                                           knn_err*100, t_knn))
 
-    clf = LMNN(verbose=1, random_state=rng, **lmnn_params)
+    lmnn = LMNN(verbose=1, random_state=rng, **lmnn_params)
     t_lmnn = time()
-    clf.fit(X_train, y_train)
+    lmnn.fit(X_train, y_train)
     t_lmnn = time() - t_lmnn
-    lmnn_err = 1. - clf.score(X_test, y_test)
+
+    knn_clf.fit(lmnn.transform(X_train), y_train)
+    lmnn_err = 1. - knn_clf.score(lmnn.transform(X_test), y_test)
     print('KNN  Test error on {}: {:5.2f}%'.format(dataset, knn_err * 100))
     print('LMNN Test error on {}: {:5.2f}%'.format(dataset, lmnn_err*100))
 
