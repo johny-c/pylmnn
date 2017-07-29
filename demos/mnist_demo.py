@@ -17,7 +17,7 @@ def fetch_mnist(path=MNIST_PATH, deskewed=True):
     mnist_mat = loadmat(path)
 
     X = mnist_mat['data']
-    X = np.asarray(X, dtype=np.float64).T
+    X = np.asarray(X, dtype=np.float64).T / 255.
 
     y = mnist_mat['label']
     y = np.asarray(y, dtype=np.int).ravel()
