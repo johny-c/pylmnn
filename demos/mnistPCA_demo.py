@@ -4,45 +4,30 @@ from scipy.io import loadmat
 import os
 from time import time
 from sklearn.neighbors import KNeighborsClassifier, LargeMarginNearestNeighbor
-from sklearn.decomposition import PCA
-from deskewing import deskew
 
 
-MNIST_PATH = os.path.join(get_data_home(), 'mldata', 'mnist-original.mat')
+MNIST_PATH = os.path.join(get_data_home(), 'mnistPCA.mat')
 CWD = os.path.split(__file__)[0]
-TRANSFORMATIONS_DIR = os.path.join(CWD, 'MNIST_ORIG_TRANSFORMATIONS')
+TRANSFORMATIONS_DIR = os.path.join(CWD, 'MNIST_TRANSFORMATIONS')
 
 
-def fetch_mnist(path=MNIST_PATH, deskewed=True):
+def fetch_mnistPCA(path=MNIST_PATH):
     mnist_mat = loadmat(path)
 
-    X = mnist_mat['data']
-    X = np.asarray(X, dtype=np.float64).T
+    def fix_data(X):
+        X = np.asarray(X, dtype=np.float64)
+        return X
 
-    y = mnist_mat['label']
-    y = np.asarray(y, dtype=np.int).ravel()
+    def fix_labels(y):
+        y = np.asarray(y, dtype=np.int32)
+        return y
 
-    if deskewed:
-        print('Deskewing dataset... ', end='', flush=True)
-        t = time()
-        for i in range(len(X)):
-            X[i] = deskew(X[i].reshape(28, 28)).ravel()
+    X_train = fix_data(mnist_mat['xTr'])
+    X_test = fix_data(mnist_mat['xTe'])
+    y_train = fix_labels(mnist_mat['yTr'])
+    y_test = fix_labels(mnist_mat['yTe'])
 
-        print('done in {:8.2f}s'.format(time()-t))
-
-    print('Performing PCA... ', end='', flush=True)
-    t = time()
-    pca = PCA(n_components=LMNN_PARAMS['n_features_out'],
-              random_state=LMNN_PARAMS['random_state'])
-    X = pca.fit_transform(X)
-    print('done in {:8.2f}s'.format(time()-t))
-
-    X_train = X[:60000]
-    X_test = X[60000:]
-    y_train = y[:60000]
-    y_test = y[60000:]
-
-    return X_train, y_train, X_test, y_test
+    return X_train.T, y_train.ravel(), X_test.T, y_test.ravel()
 
 
 def save_cb(transformation, iteration):
@@ -51,14 +36,14 @@ def save_cb(transformation, iteration):
     np.save(filepath, transformation)
 
 
-LMNN_PARAMS = {'n_neighbors': 3, 'max_iter': 120, 'n_features_out': 164,
+LMNN_PARAMS = {'n_neighbors': 3, 'max_iter': 120, 'n_features_out': 300,
                'verbose': 1, 'random_state': 42, 'callback': save_cb,
                'n_jobs':-1}
 
 
 def train(testing=True):
 
-    X_train, y_train, X_test, y_test = fetch_mnist()
+    X_train, y_train, X_test, y_test = fetch_mnistPCA()
 
     if not os.path.exists(TRANSFORMATIONS_DIR):
         os.makedirs(TRANSFORMATIONS_DIR)
@@ -77,7 +62,7 @@ def train(testing=True):
 def test(iteration=None):
 
     print('\nNow testing . . .')
-    X_train, y_train, X_test, y_test = fetch_mnist()
+    X_train, y_train, X_test, y_test = fetch_mnistPCA()
 
     knn = KNeighborsClassifier(n_neighbors=LMNN_PARAMS['n_neighbors'],
                                n_jobs=-1)
