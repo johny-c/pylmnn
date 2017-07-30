@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import os
 import sys
 from time import time
@@ -5,6 +7,7 @@ import yaml
 import numpy as np
 from sklearn.model_selection import train_test_split
 import data_fetch
+from deskewing import deskew
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier as KNN
 from sklearn.neighbors.lmnn import LargeMarginNearestNeighbor as LMNN
@@ -64,8 +67,20 @@ def benchmark_single(dataset):
     if n_splits == 1:
         X_train, y_train, X_test, y_test = data_fetch.fetch_data(dataset)
 
+        if dataset_params.get('deskew', False):
+            print('Deskewing data set... ', end='', flush=True)
+            t = time()
+            d = int(np.sqrt(X_train.shape[1]))
+            for i in range(len(X_train)):
+                X_train[i] = deskew(X_train[i].reshape(d, d)).ravel()
+
+            for i in range(len(X_test)):
+                X_test[i] = deskew(X_test[i].reshape(d, d)).ravel()
+
+            print('done in {:8.2f}s'.format(time() - t))
+
         if dataset_params.get('pca', False):
-            print('Computing principal components...', end='')
+            print('Computing principal components... ', end='', flush=True)
             t = time()
             pca = PCA(n_components=lmnn_params['n_features_out'])
             X_new = pca.fit_transform(np.concatenate((X_train, X_test)))

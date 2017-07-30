@@ -90,6 +90,8 @@ def fetch_isolet(data_dir=None):
 def fetch_usps(save_dir=None):
 
     base_url = 'http://statweb.stanford.edu/~tibs/ElemStatLearn/datasets/'
+    base_url = 'https://web.stanford.edu/~hastie/ElemStatLearn/datasets/'
+
     train_file = 'zip.train.gz'
     test_file = 'zip.test.gz'
     save_dir = get_data_home() if save_dir is None else save_dir

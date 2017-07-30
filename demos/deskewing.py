@@ -1,8 +1,5 @@
-import os
 import numpy as np
-from scipy.io import loadmat
 from scipy.ndimage import interpolation
-from sklearn.datasets import get_data_home
 
 # Deskewing code taken from https://fsix.github.io/mnist/Deskewing.html
 
