@@ -11,6 +11,7 @@ usps:
 mnist:
   n_splits : 1
   pca : True
+  deskew : True
   lmnn_params:
     n_neighbors : 3
     n_features_out : 164

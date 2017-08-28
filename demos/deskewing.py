@@ -1,8 +1,5 @@
-import os
 import numpy as np
-from scipy.io import loadmat
 from scipy.ndimage import interpolation
-from sklearn.datasets import get_data_home
 
 # Deskewing code taken from https://fsix.github.io/mnist/Deskewing.html
 
@@ -27,20 +24,3 @@ def deskew(image):
     ocenter = np.array(image.shape)/2.0
     offset = c-np.dot(affine,ocenter)
     return interpolation.affine_transform(image,affine,offset=offset)
-
-
-def main():
-    mnist = loadmat(os.path.join(get_data_home(), 'mldata',
-                                 'mnist-original.mat'))
-
-    X = mnist['data'].T
-    X = np.asarray(X, dtype=np.float64)
-    X2 = np.zeros_like(X)
-
-    for i in range(len(X)):
-        X2[i] = deskew(X[i].reshape(28, 28)).ravel()
-
-    return X2
-
-if __name__ == '__main__':
-    main()
