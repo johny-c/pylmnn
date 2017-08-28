@@ -1,46 +1,59 @@
 import numpy as np
 from sklearn.datasets import get_data_home
-from scipy.io import loadmat
+from scipy.io import loadmat #, savemat
 import os
 from time import time
 from sklearn.neighbors import KNeighborsClassifier, LargeMarginNearestNeighbor
 from sklearn.decomposition import PCA
-from deskewing import deskew
+import deskewing
 
 
 MNIST_PATH = os.path.join(get_data_home(), 'mldata', 'mnist-original.mat')
+MNIST_DESKEWED_PATH = os.path.join(get_data_home(), 'mnist-deskewed.mat')
+MNIST_TARGETS_PATH = os.path.join(get_data_home(), 'mnist-targets.mat')
+
 CWD = os.path.split(__file__)[0]
-TRANSFORMATIONS_DIR = os.path.join(CWD, 'MNIST_ORIG_TRANSFORMATIONS')
+TRANSFORMATIONS_DIR = os.path.join(CWD, 'MNIST_ORIG_DESKEWED_TRANSFORMATIONS')
 
 
-def fetch_mnist(path=MNIST_PATH, deskewed=True):
+def fetch_mnist(path=MNIST_PATH, deskew=True):
+
     mnist_mat = loadmat(path)
 
-    X = mnist_mat['data']
-    X = np.asarray(X, dtype=np.float64).T / 255.
+    if path == MNIST_PATH:
+        X = mnist_mat['data']
+        X = np.asarray(X, dtype=np.float64).T / 255.
 
-    y = mnist_mat['label']
-    y = np.asarray(y, dtype=np.int).ravel()
+        y = mnist_mat['label']
+        y = np.asarray(y, dtype=np.int).ravel()
 
-    if deskewed:
-        print('Deskewing dataset... ', end='', flush=True)
-        t = time()
-        for i in range(len(X)):
-            X[i] = deskew(X[i].reshape(28, 28)).ravel()
+        if deskew:
+            print('Deskewing dataset... ', end='', flush=True)
+            t = time()
+            for i in range(len(X)):
+                X[i] = deskewing.deskew(X[i].reshape(28, 28)).ravel()
 
-        print('done in {:8.2f}s'.format(time()-t))
+            print('done in {:8.2f}s'.format(time()-t))
 
-    print('Performing PCA... ', end='', flush=True)
-    t = time()
-    pca = PCA(n_components=LMNN_PARAMS['n_features_out'],
-              random_state=LMNN_PARAMS['random_state'])
-    X = pca.fit_transform(X)
-    print('done in {:8.2f}s'.format(time()-t))
+            print('Performing PCA... ', end='', flush=True)
+            t = time()
+            pca = PCA(n_components=LMNN_PARAMS['n_features_out'],
+                      random_state=LMNN_PARAMS['random_state'])
+            X = pca.fit_transform(X)
+            print('done in {:8.2f}s'.format(time()-t))
 
-    X_train = X[:60000]
-    X_test = X[60000:]
-    y_train = y[:60000]
-    y_test = y[60000:]
+            X_train = X[:60000]
+            X_test = X[60000:]
+            y_train = y[:60000]
+            y_test = y[60000:]
+
+    elif path == MNIST_DESKEWED_PATH:
+        X_train = np.asarray(mnist_mat['xTr'], dtype=np.float64).T
+        X_test = np.asarray(mnist_mat['xTe'], dtype=np.float64).T
+        y_train = np.asarray(mnist_mat['yTr'], dtype=np.int).ravel()
+        y_test = np.asarray(mnist_mat['yTe'], dtype=np.int).ravel()
+    else:
+        raise ValueError('Unknown MNIST path.')
 
     return X_train, y_train, X_test, y_test
 
@@ -52,16 +65,25 @@ def save_cb(transformation, iteration):
 
 
 LMNN_PARAMS = {'n_neighbors': 3, 'max_iter': 120, 'n_features_out': 164,
-               'verbose': 1, 'random_state': 42, 'callback': save_cb,
-               'n_jobs':-1}
+               'verbose': 1, 'random_state': 71, 'callback': save_cb,
+               'n_jobs': -1}
+TARGETS = False
 
 
 def train(testing=True):
 
-    X_train, y_train, X_test, y_test = fetch_mnist()
+    X_train, y_train, X_test, y_test = fetch_mnist(MNIST_DESKEWED_PATH, True)
+    #f = os.path.join('/usr/wiss/chiotell/projects/csd_lmnn/code/thirdparty/LMNN/lmnn3/demos/mnistPyDeskewed.mat')
+    #d = {'xTr': X_train.T, 'xTe': X_test.T, 'yTr': y_train, 'yTe': y_test}
+    #savemat(f, d)
+    #return
 
     if not os.path.exists(TRANSFORMATIONS_DIR):
         os.makedirs(TRANSFORMATIONS_DIR)
+
+    if os.path.exists(MNIST_TARGETS_PATH) and TARGETS:
+        mnist_mat = loadmat(MNIST_TARGETS_PATH)
+        LMNN_PARAMS['targets'] = mnist_mat['idx']
 
     lmnn = LargeMarginNearestNeighbor(**LMNN_PARAMS)
 
@@ -71,13 +93,12 @@ def train(testing=True):
     print('Finished training in {:8.2f}s'.format(t_train))
 
     if testing:
-        test()
+        test(X_train, y_train, X_test, y_test)
 
 
-def test(iteration=None):
+def test(X_train, y_train, X_test, y_test, iteration=None):
 
     print('\nNow testing . . .')
-    X_train, y_train, X_test, y_test = fetch_mnist()
 
     knn = KNeighborsClassifier(n_neighbors=LMNN_PARAMS['n_neighbors'],
                                n_jobs=-1)
@@ -130,4 +151,4 @@ if __name__ == '__main__':
     if args.test != 0:
         test(args.test)
     else:
-        train()
+        train(testing=True)
