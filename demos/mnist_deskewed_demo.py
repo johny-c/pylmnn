@@ -91,8 +91,8 @@ def fetch_deskewed_mnist(url=MNIST_DESKEWED_URL):
 
     mnist_mat = loadmat(MNIST_DESKEWED_PATH)
 
-    X_train = np.asarray(mnist_mat['X_train'], dtype=np.float64).T
-    X_test = np.asarray(mnist_mat['X_test'], dtype=np.float64).T
+    X_train = np.asarray(mnist_mat['X_train'], dtype=np.float64)
+    X_test = np.asarray(mnist_mat['X_test'], dtype=np.float64)
     y_train = np.asarray(mnist_mat['y_train'], dtype=np.int).ravel()
     y_test = np.asarray(mnist_mat['y_test'], dtype=np.int).ravel()
 
