@@ -75,9 +75,6 @@ def save_deskewed_mnist_pca(path=MNIST_ORIGINAL_PATH, n_components=164,
     y_train = y[:60000]
     y_test = y[60000:]
 
-    print('X_train: type: {}, shape: {}'.format(X_train.dtype, X_train.shape))
-    print('y_train: type: {}, shape: {}'.format(y_train.dtype, y_train.shape))
-
     new_mat = {'X_train': X_train, 'y_train': y_train, 'X_test': X_test,
                'y_test': y_test}
 
