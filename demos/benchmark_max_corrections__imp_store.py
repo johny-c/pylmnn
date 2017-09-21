@@ -8,11 +8,11 @@ import yaml
 import numpy as np
 from sklearn.model_selection import train_test_split
 from dataset_fetcher import fetch_dataset
-
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier as KNN
 from sklearn.neighbors import LargeMarginNearestNeighbor as LMNN
 
+from matplotlib import pyplot as plt
 import seaborn as sns; sns.set()
 
 
@@ -144,10 +144,10 @@ def run_benchmark(datasets=DATASETS, max_corrections=10, imp_store='sparse'):
         results_log.save()
 
 
-def plot_time_vs_imp_store(datasets=DATASETS, max_corrections=100):
 
-    xs, ys, stds, cs = [], [], [], []
+def gather_all_runs(datasets=DATASETS):
 
+    df_all = pd.DataFrame()
     for dataset in datasets:
         dataset_dir = os.path.join(LOG_DIR, dataset)
         if not os.path.exists(dataset_dir):
@@ -158,100 +158,90 @@ def plot_time_vs_imp_store(datasets=DATASETS, max_corrections=100):
 
         for results_file in results_files:
             df = pd.read_csv(results_file)
-            max_corrections_ = df['max_corrections'][0]
-            if max_corrections_ != max_corrections:
-                continue
+            df_all = df_all.append(df, ignore_index=True)
 
-            n_samples = df['n_train_samples'][0]
-            imp_store = df['imp_store'][0]
-            vals = df['t_fit_lmnn'] / df['n_funcalls']
-            xs.append(imp_store)
-            ys.append(vals.mean())
-            stds.append(vals.std())
-            cs.append(dataset + '\n(n=' + str(n_samples) + ')')
-
-    df = pd.DataFrame({'imp_store': xs, 'time_per_fev': ys, 'dataset': cs,
-                       'stds': stds})
-
-    sns_plot = sns.barplot(x='dataset', y='time_per_fev', data=df,
-                        hue='imp_store')
-    sns.plt.title('Time per function call vs `imp_store`', fontweight='bold')
-    save_path = os.path.join(LOG_DIR, 'time__vs__imp_store_m={}.png'.format(
-        max_corrections))
-    sns_plot.get_figure().savefig(save_path, dpi=250)
+    return df_all
 
 
-def plot_time_vs_maxcor(datasets=DATASETS, imp_store='list'):
+def plot_time_vs_imp_store():
 
-    xs, ys, stds, cs = [], [], [], []
+    df = gather_all_runs()
+    df['time_per_funcall'] = df['t_fit_lmnn'] / df['n_funcalls']
 
-    for dataset in datasets:
-        dataset_dir = os.path.join(LOG_DIR, dataset)
-        if not os.path.exists(dataset_dir):
-            raise NotADirectoryError
+    # Two subplot columns
+    df_m10 = df.loc[df['max_corrections'] == 10]
+    df_m100 = df.loc[df['max_corrections'] == 100]
 
-        results_files = os.listdir(dataset_dir)
-        results_files = [os.path.join(dataset_dir, f) for f in results_files]
+    # Set up the matplotlib figure
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6))
+    sns.despine(left=True)
 
-        for results_file in results_files:
-            df = pd.read_csv(results_file)
-            imp_store_ = df['imp_store'][0]
-            if imp_store_ != imp_store:
-                continue
+    # Sort the datasets by training set size
+    order = df[['dataset', 'n_train_samples']].drop_duplicates()
+    order = order.sort_values(by='n_train_samples')['dataset']
+    # Sort the colors so the subplots are color consistent
+    hue_order = df['imp_store'].unique()
 
-            n_samples = df['n_train_samples'][0]
-            max_corrections = df['max_corrections'][0]
-            vals = df['t_fit_lmnn'] / df['n_iterations']
-            xs.append(max_corrections)
-            ys.append(vals.mean())
-            cs.append(dataset + '\n(n=' + str(n_samples) + ')')
+    # Plot time_per_funcall against imp_store
+    ax = axes[0]
+    splot10 = sns.barplot(x='dataset', order=order,
+                          y='time_per_funcall', data=df_m10,
+                          hue='imp_store', hue_order=hue_order, ax=ax)
+    ax.set_yscale('log')
+    ax.set_title('max_corrections = 10')
 
-    df = pd.DataFrame({'max_corrections': xs, 'time_per_iter': ys, 'dataset': cs})
+    ax = axes[1]
+    splot100 = sns.barplot(x='dataset', order=order,
+                           y='time_per_funcall', data=df_m100,
+                           hue='imp_store', hue_order=hue_order, ax=ax)
+    ax.set_yscale('log')
+    ax.set_title('max_corrections = 100')
 
-    sns_plot = sns.barplot(x='dataset', y='time_per_iter', data=df,
-                           hue='max_corrections')
-    sns.plt.title('Time per iteration vs `max_corrections`',
-                  fontweight='bold')
-    save_path = os.path.join(
-        LOG_DIR, 'time__vs__max_corrections__imp_store={}.png'.format(imp_store))
-    sns_plot.get_figure().savefig(save_path, dpi=250)
+    fig.suptitle('Time per function call vs imp_store', fontweight='bold')
+
+    # Save figure
+    save_path = os.path.join(LOG_DIR, 'time__vs__imp_store.png')
+    fig.savefig(save_path, dpi=250)
 
 
-def plot_traintime_vs_maxcor(datasets=DATASETS, imp_store='list'):
+def plot_metrics_vs_max_corrections():
 
-    xs, ys, stds, cs = [], [], [], []
+    df = gather_all_runs()
+    df['lmnn_error100'] = df['lmnn_error'] * 100
+    # Need to show lmnn_error, n_iterations, t_fit_lmnn
+    metrics = ['lmnn_error100', 'n_iterations', 't_fit_lmnn']
 
-    for dataset in datasets:
-        dataset_dir = os.path.join(LOG_DIR, dataset)
-        if not os.path.exists(dataset_dir):
-            raise NotADirectoryError
+    # Two subplot columns
+    df_list = df.loc[df['imp_store'] == 'list']
+    df_sparse = df.loc[df['imp_store'] == 'sparse']
 
-        results_files = os.listdir(dataset_dir)
-        results_files = [os.path.join(dataset_dir, f) for f in results_files]
+    # Set up the matplotlib figure
+    fig, axes = plt.subplots(len(metrics), 2, figsize=(15, 18))
+    sns.despine(left=True)
 
-        for results_file in results_files:
-            df = pd.read_csv(results_file)
-            imp_store_ = df['imp_store'][0]
-            if imp_store_ != imp_store:
-                continue
+    # Sort the datasets by training set size
+    order = df[['dataset', 'n_train_samples']].drop_duplicates()
+    order = order.sort_values(by='n_train_samples')['dataset']
+    # Sort the colors so the subplots are color consistent
+    hue_order = df['max_corrections'].unique()
 
-            n_samples = df['n_train_samples'][0]
-            max_corrections = df['max_corrections'][0]
-            vals = df['t_fit_lmnn']
-            xs.append(max_corrections)
-            ys.append(vals.mean())
-            cs.append(dataset + '\n(n=' + str(n_samples) + ')')
+    # Plot time_per_fev againse imp_store for m=10
+    for i, metric in enumerate(metrics):
+        for j, imp_store in enumerate(['list', 'sparse']):
+            ax = axes[i, j]
+            data = df_list if imp_store == 'list' else df_sparse
+            s = sns.barplot(x='dataset', order=order, y=metric, data=data,
+                            hue='max_corrections', hue_order=hue_order, ax=ax)
 
-    df = pd.DataFrame({'max_corrections': xs, 't_fit': ys, 'dataset': cs})
+            if metric == 't_fit_lmnn':
+                ax.set_yscale('log')
+            ax.set_title('imp_store = {}'.format(imp_store))
 
-    sns_plot = sns.barplot(x='dataset', y='t_fit', data=df,
-                           hue='max_corrections')
-    sns.plt.title('#Training time vs `max_corrections`',
-                  fontweight='bold')
-    save_path = os.path.join(
-        LOG_DIR, 't_fit__vs__max_corrections__imp_store={}.png'.format(
-            imp_store))
-    sns_plot.get_figure().savefig(save_path, dpi=250)
+    fig.suptitle('Influence of max_corrections', fontweight='bold')
+
+    # Save figure
+    save_path = os.path.join(LOG_DIR, 'metrics__vs__max_corrections.png')
+    fig.savefig(save_path, dpi=250)
 
 
 def main():
