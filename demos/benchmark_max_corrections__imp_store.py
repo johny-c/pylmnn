@@ -14,6 +14,8 @@ from sklearn.neighbors import LargeMarginNearestNeighbor as LMNN
 
 from matplotlib import pyplot as plt
 import seaborn as sns; sns.set()
+colors = ["windows blue", "orange red", "grey", "amber"]
+myPalette = sns.xkcd_palette(colors)
 
 
 CWD = os.path.split(__file__)[0]
@@ -225,7 +227,7 @@ def plot_metrics_vs_max_corrections():
     # Sort the colors so the subplots are color consistent
     hue_order = df['max_corrections'].unique()
 
-    # Plot time_per_fev againse imp_store for m=10
+    # Plot metric against max_corrections
     for i, metric in enumerate(metrics):
         for j, imp_store in enumerate(['list', 'sparse']):
             ax = axes[i, j]
@@ -242,6 +244,76 @@ def plot_metrics_vs_max_corrections():
     # Save figure
     save_path = os.path.join(LOG_DIR, 'metrics__vs__max_corrections.png')
     fig.savefig(save_path, dpi=250)
+
+
+def plot_knn__vs__lmnn():
+
+    df = gather_all_runs()
+    # Keep just one option for max_corrections
+    df = df[df['max_corrections'] == 10]
+    # Keep just one option for imp_store
+    df = df[df['imp_store'] == 'sparse']
+
+    df['knn_error100'] = df['knn_error'] * 100
+    df['lmnn_error100'] = df['lmnn_error'] * 100
+
+    df_knn = df
+    df_lmnn = df.copy()
+
+    df_knn['method'] = 'KNN'
+    df_knn = df_knn.rename(columns={'t_fit_knn': 't_fit', 't_test_knn':
+        't_test', 'knn_error100': 'test_error%'})
+
+    df_lmnn['method'] = 'LMNN'
+    df_lmnn = df_lmnn.rename(columns={'t_fit_lmnn': 't_fit', 't_test_lmnn':
+        't_test', 'lmnn_error100': 'test_error%'})
+    df = df_knn.append(df_lmnn)
+
+    # Need to show t_fit, t_test, error
+    metrics = ['t_fit', 't_test', 'test_error%']
+
+    # Two subplot columns (time, accuracy)
+
+    # Set up the matplotlib figure
+    fig, axes = plt.subplots(1, 3, figsize=(20, 7))
+    sns.despine(left=True)
+
+    # Sort the datasets by training set size
+    order = df[['dataset', 'n_train_samples']].drop_duplicates()
+    order = order.sort_values(by='n_train_samples')['dataset']
+    # Sort the colors so the subplots are color consistent
+    hue_order = ['KNN', 'LMNN']
+
+    # Plot t_fit, t_test, error against method
+    for i, metric in enumerate(metrics):
+        ax = axes[i]
+        s = sns.barplot(x='dataset', order=order, y=metric, data=df,
+                        ax=ax, hue='method', hue_order=hue_order)
+
+        if metric != 'test_error%':
+            ax.set_yscale('log')
+        else:
+            # ax.set_yticks(np.arange(0, 15, 0.1))
+            pass
+
+        ax.set_title('{}'.format(metric))
+
+
+    # https://stackoverflow.com/questions/39519609/annotate-bars-with-values-on-pandas-on-seaborn-factorplot-bar-plot
+    ax = axes[-1] #annotate axis = seaborn axis
+    def annotateBars(row, ax=ax):
+        for p in ax.patches:
+            ax.annotate("%.2f" % p.get_height(), (p.get_x() + p.get_width() / 2., p.get_height()),
+                        ha='center', va='center', fontsize=11, color='gray', rotation=0, xytext=(0, 20),
+                        textcoords='offset points')
+
+    plot = df.apply(annotateBars, ax=ax, axis=1)
+    fig.suptitle('K-Nearest Neighbors vs LMNN', fontweight='bold')
+
+    # Save figure
+    save_path = os.path.join(LOG_DIR, 'knn__vs__lmnn.png')
+    fig.savefig(save_path, dpi=300)
+
 
 
 def main():
