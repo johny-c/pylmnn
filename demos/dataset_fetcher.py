@@ -21,7 +21,7 @@ def fetch_letters(data_dir=None):
     y = np.loadtxt(path, dtype=str, usecols=(0), delimiter=',')
     X = np.loadtxt(path, usecols=range(1, 17), delimiter=',')
 
-    return X, y
+    return X, y, None, None
 
 
 def decompress_z(fname_in, fname_out=None):
@@ -87,9 +87,12 @@ def fetch_isolet(data_dir=None):
     return X_train, y_train, X_test, y_test
 
 
-def fetch_usps(save_dir=None):
+USPS_DIR = os.path.join(get_data_home(), 'usps')
 
-    base_url = 'http://statweb.stanford.edu/~tibs/ElemStatLearn/datasets/'
+
+def fetch_usps(save_dir=USPS_DIR):
+
+    # base_url = 'http://statweb.stanford.edu/~tibs/ElemStatLearn/datasets/'
     base_url = 'https://web.stanford.edu/~hastie/ElemStatLearn/datasets/'
 
     train_file = 'zip.train.gz'
@@ -140,57 +143,57 @@ def fetch_mnistPCA(data_dir=None):
 
     mnist_mat = loadmat(path)
 
-    X_train, y_train = mnist_mat['xTr'], mnist_mat['yTr']
-    X_test, y_test = mnist_mat['xTe'], mnist_mat['yTe']
+    X_train = np.asarray(mnist_mat['xTr'], dtype=np.float64)
+    X_test = np.asarray(mnist_mat['xTe'], dtype=np.float64)
+    y_train = np.asarray(mnist_mat['yTr'], dtype=np.int).ravel()
+    y_test = np.asarray(mnist_mat['yTe'], dtype=np.int).ravel()
 
-    return X_train.T, y_train.ravel(), X_test.T, y_test.ravel()
+    return X_train, y_train, X_test, y_test
 
 
-def fetch_data(dataset, split=True):
+def fetch_mnist_deskewed(data_dir=None):
+
+    MNIST_DESKEWED_URL = 'https://www.dropbox.com/s/mhsnormwt5i2ba6/mnist-deskewed-pca164.mat?dl=1'
+    MNIST_DESKEWED_PATH = os.path.join(get_data_home(),
+                                       'mnist-deskewed-pca164.mat')
+
+    if not os.path.exists(MNIST_DESKEWED_PATH):
+        from urllib import request
+        print('Downloading deskewed MNIST from {} . . .'.format(
+            MNIST_DESKEWED_URL), end='')
+        request.urlretrieve(MNIST_DESKEWED_URL, MNIST_DESKEWED_PATH)
+        print('done.')
+
+    mnist_mat = loadmat(MNIST_DESKEWED_PATH)
+
+    X_train = np.asarray(mnist_mat['X_train'], dtype=np.float64)
+    X_test = np.asarray(mnist_mat['X_test'], dtype=np.float64)
+    y_train = np.asarray(mnist_mat['y_train'], dtype=np.int).ravel()
+    y_test = np.asarray(mnist_mat['y_test'], dtype=np.int).ravel()
+
+    print('Loaded deskewed MNIST from {}.'.format(MNIST_DESKEWED_PATH))
+
+    return X_train, y_train, X_test, y_test
+
+
+def fetch_dataset(dataset):
 
     if dataset == 'isolet':
-        X_train, y_train, X_test, y_test = fetch_isolet()
-        if split:
-            return X_train, y_train, X_test, y_test
-        else:
-            return np.concatenate((X_train, X_test)), \
-                   np.concatenate((y_train, y_test))
+        return fetch_isolet()
     elif dataset == 'usps':
-        X_train, y_train, X_test, y_test = fetch_usps()
-        if split:
-            return X_train, y_train, X_test, y_test
-        else:
-            return np.concatenate((X_train, X_test)), \
-                   np.concatenate((y_train, y_test))
+        return fetch_usps()
     elif dataset == 'olivetti_faces':
-        data = fetch_olivetti_faces(shuffle=True)
-        if split:
-            X_train, X_test, y_train, y_test = train_test_split(data.data,
-                                                         data.target,
-                                                      stratify=data.target,
-                                                      test_size=0.3)
-            return X_train, y_train, X_test, y_test
-        else:
-            return data.data, data.target
+        faces = fetch_olivetti_faces(shuffle=True)
+        return faces.data, faces.target, None, None
     elif dataset == 'letters':
-        X, y = fetch_letters()
-        if split:
-            X_train, X_test, y_train, y_test = train_test_split(X, y,
-                                                                stratify=y,
-                                                                test_size=0.3)
-            return X_train, y_train, X_test, y_test
-        else:
-            return X, y
+        return fetch_letters()
     elif dataset == 'iris':
-        data = load_iris()
-        if split:
-            X_train, X_test, y_train, y_test = train_test_split(data.data,
-                                                                data.target,
-                                                                stratify=data.target,
-                                                                test_size=0.3)
-            return X_train, y_train, X_test, y_test
-        else:
-            return data.data, data.target
+        X, y = load_iris(return_X_y=True)
+        return X, y, None, None
+    elif dataset == 'mnist_deskewed':
+        return fetch_mnist_deskewed()
+    elif dataset == 'mnistPCA':
+        return fetch_mnistPCA()
     elif dataset == 'mnist':
         data = fetch_mldata('MNIST original')
         X = data.data
@@ -199,8 +202,5 @@ def fetch_data(dataset, split=True):
         X_train, X_test = X[:60000], X[60000:]
         y_train, y_test = data.target[:60000], data.target[60000:]
         return X_train, y_train, X_test, y_test
-    elif dataset == 'mnistPCA':
-        return fetch_mnistPCA()
     else:
         raise NotImplementedError('Unknown dataset {}!'.format(dataset))
-

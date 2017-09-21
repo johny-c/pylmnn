@@ -1,0 +1,2 @@
+dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,max_corrections,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
+usps,7291,2007,20,10,0.005175590515136719,0.2035362720489502,15.874189138412476,0.20337915420532227,100,sparse,23,24,1055436.2231307589,0.06776283009466866,0.05580468360737423
