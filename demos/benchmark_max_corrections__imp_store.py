@@ -165,7 +165,7 @@ def gather_all_runs(datasets=DATASETS):
     return df_all
 
 
-def plot_time_vs_imp_store():
+def plot_time__vs__imp_store():
 
     df = gather_all_runs()
     df['time_per_funcall'] = df['t_fit_lmnn'] / df['n_funcalls']
@@ -206,7 +206,7 @@ def plot_time_vs_imp_store():
     fig.savefig(save_path, dpi=250)
 
 
-def plot_metrics_vs_max_corrections():
+def plot_metrics__vs__max_corrections():
 
     df = gather_all_runs()
     df['lmnn_error100'] = df['lmnn_error'] * 100
