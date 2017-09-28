@@ -10,7 +10,7 @@ import data_fetch
 from deskewing import deskew
 from sklearn.decomposition import PCA
 from sklearn.neighbors import KNeighborsClassifier as KNN
-from sklearn.neighbors.lmnn import LargeMarginNearestNeighbor as LMNN
+from sklearn.neighbors import LargeMarginNearestNeighbor as LMNN
 from tabulate import tabulate
 
 

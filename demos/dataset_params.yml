@@ -8,14 +8,13 @@ usps:
     n_features_out : 20
     max_iter : 187
 
-mnist:
+mnist_deskewed:
   n_splits : 1
-  pca : True
-  deskew : True
+  pca : False
   lmnn_params:
     n_neighbors : 3
     n_features_out : 164
-    max_iter : 120
+    max_iter : 35
 
 mnistPCA:
   n_splits : 1
