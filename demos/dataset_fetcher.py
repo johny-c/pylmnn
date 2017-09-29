@@ -143,8 +143,8 @@ def fetch_mnistPCA(data_dir=None):
 
     mnist_mat = loadmat(path)
 
-    X_train = np.asarray(mnist_mat['xTr'], dtype=np.float64)
-    X_test = np.asarray(mnist_mat['xTe'], dtype=np.float64)
+    X_train = np.asarray(mnist_mat['xTr'], dtype=np.float64).T
+    X_test = np.asarray(mnist_mat['xTe'], dtype=np.float64).T
     y_train = np.asarray(mnist_mat['yTr'], dtype=np.int).ravel()
     y_test = np.asarray(mnist_mat['yTe'], dtype=np.int).ravel()
 
@@ -154,7 +154,7 @@ def fetch_mnistPCA(data_dir=None):
 def fetch_mnist_deskewed(data_dir=None):
 
     MNIST_DESKEWED_URL = 'https://www.dropbox.com/s/mhsnormwt5i2ba6/mnist-deskewed-pca164.mat?dl=1'
-    MNIST_DESKEWED_PATH = os.path.join(get_data_home(),
+    MNIST_DESKEWED_PATH = os.path.join(get_data_home(data_dir),
                                        'mnist-deskewed-pca164.mat')
 
     if not os.path.exists(MNIST_DESKEWED_PATH):
