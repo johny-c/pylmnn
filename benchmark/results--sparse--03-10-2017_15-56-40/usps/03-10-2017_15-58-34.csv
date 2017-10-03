@@ -1,0 +1,2 @@
+n_features_original,pca_flag,dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
+256,True,usps,7291,2007,20,10,0.005689144134521484,0.2042398452758789,12.982849359512329,0.20391106605529785,sparse,23,24,1057025.9424493674,0.06726457399103136,0.0577977080219233

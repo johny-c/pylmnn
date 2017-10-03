@@ -4,7 +4,6 @@ import numpy as np
 from scipy.io import loadmat
 from sklearn.datasets import get_data_home, fetch_olivetti_faces, \
     fetch_mldata, load_iris
-from sklearn.model_selection import train_test_split
 
 
 def fetch_letters(data_dir=None):
@@ -25,16 +24,20 @@ def fetch_letters(data_dir=None):
 
 
 def decompress_z(fname_in, fname_out=None):
-    from unlzw import unlzw
+    from util import unlzw
     fname_out = fname_in[:-2] if fname_out is None else fname_out
     print('Extracting {} to {}...'.format(fname_in, fname_out))
     with open(fname_in, 'rb') as fin, open(fname_out, 'wb') as fout:
         compressed_data = fin.read()
-        uncompressed_data = unlzw(compressed_data)
+        uncompressed_data = unlzw.unlzw(compressed_data)
         fout.write(uncompressed_data)
 
 
 def fetch_isolet(data_dir=None):
+
+    if data_dir is None:
+        data_dir = os.path.join(get_data_home(), 'isolet')
+
     train = 'isolet1+2+3+4.data.Z'
     test = 'isolet5.data.Z'
     path_train = os.path.join(get_data_home(data_dir), train)
@@ -87,20 +90,19 @@ def fetch_isolet(data_dir=None):
     return X_train, y_train, X_test, y_test
 
 
-USPS_DIR = os.path.join(get_data_home(), 'usps')
+def fetch_usps(data_dir=None):
 
-
-def fetch_usps(save_dir=USPS_DIR):
+    if data_dir is None:
+        data_dir = os.path.join(get_data_home(), 'usps')
 
     # base_url = 'http://statweb.stanford.edu/~tibs/ElemStatLearn/datasets/'
     base_url = 'https://web.stanford.edu/~hastie/ElemStatLearn/datasets/'
 
     train_file = 'zip.train.gz'
     test_file = 'zip.test.gz'
-    save_dir = get_data_home() if save_dir is None else save_dir
 
-    if not os.path.isdir(save_dir):
-        raise NotADirectoryError('{} is not a directory.'.format(save_dir))
+    if not os.path.isdir(data_dir):
+        raise NotADirectoryError('{} is not a directory.'.format(data_dir))
 
     def download_file(source, destination):
 
@@ -115,8 +117,8 @@ def fetch_usps(save_dir=USPS_DIR):
     train_source = os.path.join(base_url, train_file)
     test_source = os.path.join(base_url, test_file)
 
-    train_dest = os.path.join(save_dir, train_file)
-    test_dest = os.path.join(save_dir, test_file)
+    train_dest = os.path.join(data_dir, train_file)
+    test_dest = os.path.join(data_dir, test_file)
 
     download_file(train_source, train_dest)
     download_file(test_source, test_dest)

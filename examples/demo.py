@@ -7,7 +7,8 @@ import matplotlib.pyplot as plt
 from configparser import ConfigParser
 
 from pylmnn import bayesopt, lmnn, helpers, plots
-from data_fetch import fetch_from_config
+from util.dataset_fetcher import fetch_dataset
+# from data_fetch import fetch_from_config
 
 
 def main(demo='letters'):
