@@ -1,15 +1,16 @@
 import os
 import warnings
+
 import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
+
+from config import BENCHMARK_DIR
 
 DPI = 100
 COLORS = ["windows blue", "orange red", "grey", "amber"]
 PALETTE = sns.xkcd_palette(COLORS)
 sns.set(palette=PALETTE)
-
-from config import BENCHMARK_DIR
 
 
 def plot_time__vs__imp_store(df, save_path=None):
@@ -31,29 +32,29 @@ def plot_time__vs__imp_store(df, save_path=None):
     order = order.sort_values(by='n_train_samples')['x']
     # order = order.sort_values(by='n_train_samples')['dataset']
     # Sort the colors so the subplots are color consistent
-    hue_order = df['imp_store'].unique()
+    hue_order = df['impostor_store'].unique()
 
-    # Plot time_per_funcall against imp_store
+    # Plot time_per_funcall against impostor_store
     # ax = axes[0]
     ax = plt.gca()
 
 
     data = df  # df_m10
     sns.barplot(x='x', order=order, y='time_per_funcall', data=data,
-                hue='imp_store', hue_order=hue_order, ax=ax)
+                hue='impostor_store', hue_order=hue_order, ax=ax)
     ax.set_yscale('log')
     # ax.set_title('max_corrections = 10')
 
     # ax = axes[1]
     # splot100 = sns.barplot(x='dataset', order=order,
     #                        y='time_per_funcall', data=df_m100,
-    #                        hue='imp_store', hue_order=hue_order, ax=ax)
+    #                        hue='impostor_store', hue_order=hue_order, ax=ax)
     # ax.set_yscale('log')
     # ax.set_title('max_corrections = 100')
 
     df.apply(annotateBars, ax=ax, axis=1)
 
-    fig.suptitle('Time per function call vs imp_store', fontweight='bold')
+    fig.suptitle('Time per function call vs impostor_store', fontweight='bold')
 
     # Save figure
     if save_path is not None:
@@ -68,8 +69,8 @@ def plot_metrics__vs__max_corrections(df, save_path=None):
     metrics = ['lmnn_error100', 'n_iterations', 't_fit_lmnn']
 
     # Two subplot columns
-    df_list = df.loc[df['imp_store'] == 'list']
-    df_sparse = df.loc[df['imp_store'] == 'sparse']
+    df_list = df.loc[df['impostor_store'] == 'list']
+    df_sparse = df.loc[df['impostor_store'] == 'sparse']
 
     # Set up the matplotlib figure
     fig, axes = plt.subplots(len(metrics), 2, figsize=(15, 18))
@@ -83,15 +84,15 @@ def plot_metrics__vs__max_corrections(df, save_path=None):
 
     # Plot metric against max_corrections
     for i, metric in enumerate(metrics):
-        for j, imp_store in enumerate(['list', 'sparse']):
+        for j, impostor_store in enumerate(['list', 'sparse']):
             ax = axes[i, j]
-            data = df_list if imp_store == 'list' else df_sparse
+            data = df_list if impostor_store == 'list' else df_sparse
             s = sns.barplot(x='dataset', order=order, y=metric, data=data,
                             hue='max_corrections', hue_order=hue_order, ax=ax)
 
             if metric == 't_fit_lmnn':
                 ax.set_yscale('log')
-            ax.set_title('imp_store = {}'.format(imp_store))
+            ax.set_title('impostor_store = {}'.format(impostor_store))
 
     fig.suptitle('Influence of max_corrections', fontweight='bold')
 
@@ -104,8 +105,8 @@ def plot_knn__vs__lmnn(df, save_path=None):
 
     # Keep just one option for max_corrections
     # df = df[df['max_corrections'] == 10]
-    # Keep just one option for imp_store
-    # df = df[df['imp_store'] == 'sparse']
+    # Keep just one option for impostor_store
+    # df = df[df['impostor_store'] == 'sparse']
 
     df['knn_error100'] = df['knn_error'] * 100
     df['lmnn_error100'] = df['lmnn_error'] * 100
@@ -210,28 +211,7 @@ def get_latest_log_dir():
     return latest_log_dir
 
 
-
-
-def main():
-    import sys
-
-    if len(sys.argv) > 1:
-        log_dir = sys.argv[1]
-        if not os.path.isdir(log_dir):
-            raise NotADirectoryError('{} is not a directory!'.format(log_dir))
-    else:
-        log_dir = get_latest_log_dir()
-
-    df = gather_all_runs(log_dir)
-    save_path = os.path.join(log_dir, 'knn__vs__lmnn.png')
-    plot_knn__vs__lmnn(df, save_path)
-    plt.show()
-
-
-
-if __name__ == '__main__':
-    # main()
-
+def plot_list_vs_sparse():
     log_dir_list = 'results--03-10-2017_15-53-25'
     log_dir_sparse = 'results--03-10-2017_15-56-40'
 
@@ -245,3 +225,24 @@ if __name__ == '__main__':
     df = df_list.append(df_sparse)
     plot_time__vs__imp_store(df)
     plt.show()
+
+
+def main():
+    import sys
+
+    if len(sys.argv) > 1:
+        log_dir = sys.argv[1]
+        if not os.path.isdir(log_dir):
+            raise NotADirectoryError('{} is not a directory!'.format(log_dir))
+    else:
+        log_dir = get_latest_log_dir()
+
+    print(log_dir)
+    df = gather_all_runs(log_dir)
+    save_path = os.path.join(log_dir, 'knn__vs__lmnn.png')
+    plot_knn__vs__lmnn(df, save_path)
+    plt.show()
+
+
+if __name__ == '__main__':
+    main()

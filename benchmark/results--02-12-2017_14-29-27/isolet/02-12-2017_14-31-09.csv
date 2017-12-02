@@ -1,0 +1,2 @@
+n_features_original,pca_flag,dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
+617,True,isolet,6238,1559,172,26,0.026937484741210938,1.0128259658813477,60.84487986564636,1.3090510368347168,auto,89,116,547129.2596671835,0.08274534958306612,0.03527902501603597

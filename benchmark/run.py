@@ -75,7 +75,7 @@ def single_run(X_train, y_train, X_test, y_test, lmnn_params, dataset_name):
                          t_test_knn=t_test_knn,
                          t_fit_lmnn=t_fit_lmnn,
                          t_test_lmnn=t_test_lmnn,
-                         imp_store=lmnn.imp_store,
+                         imp_store=lmnn.impostor_store,
                          n_iterations=lmnn.opt_result_.nit,
                          n_funcalls=lmnn.opt_result_.nfev,
                          objective=lmnn.opt_result_.fun,
@@ -142,4 +142,4 @@ def run_benchmark(name='', **benchmark_params):
 
 
 if __name__ == '__main__':
-    run_benchmark(imp_store='sparse')
+    run_benchmark()
