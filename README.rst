@@ -60,8 +60,7 @@ Here is a minimal use case:
 
 
     # Load a data set
-    dataset = load_iris()
-    X, y = dataset.data, dataset.target
+    X, y = load_iris(return_X_y=True)
 
     # Split in training and testing set
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.7, stratify=y, random_state=42)
