@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-__version__ = '1.6.2'
+__version__ = '1.6.3'
 
 if __name__ == '__main__':
     here = path.abspath(path.dirname(__file__))
@@ -42,6 +42,5 @@ if __name__ == '__main__':
                           'scikit_learn>=0.18'],
 
         tests_require=[
-            'mock>=0.8, <3.0',
             'pytest>=3.0.1, <4.0'],
     )
