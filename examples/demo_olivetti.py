@@ -4,6 +4,7 @@ from sklearn.datasets import fetch_olivetti_faces
 
 from pylmnn import LargeMarginNearestNeighbor
 
+
 data = fetch_olivetti_faces()
 X, y = data.data, data.target
 

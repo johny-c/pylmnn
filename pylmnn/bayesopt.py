@@ -7,7 +7,7 @@ from .lmnn import LargeMarginNearestNeighbor
 
 
 def find_hyperparams(X_train, y_train, X_valid, y_valid, params=None, max_bopt_iter=12):
-    """Find the best hyperparameters for LMNN for a specified number of trials using Bayesian Optimisation.
+    """Find the best hyperparameters for LMNN using Bayesian Optimisation.
 
     Parameters
     ----------
@@ -28,7 +28,7 @@ def find_hyperparams(X_train, y_train, X_valid, y_valid, params=None, max_bopt_i
              A dictionary of parameters to be passed to the LargeMarginNearestNeighbor classifier instance.
 
     max_bopt_iter : int
-            Maximum number of parameter vectors to evaluate (Default value = 12).
+            Maximum number of parameter configurations to evaluate (Default value = 12).
 
     Returns
     -------
