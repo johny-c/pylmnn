@@ -9,8 +9,8 @@ Weinberger found at https://bitbucket.org/mlcircus/lmnn. This version
 solves the unconstrained optimisation problem and finds a linear
 transformation using L-BFGS as the backend optimizer.
 
-This package also uses Bayesian Optimization to find the optimal
-hyper-parameters for LMNN using the excellent
+This package can also  find optimal
+hyper-parameters for LMNN via Bayesian Optimization using the excellent
 `GPyOpt <http://github.com/SheffieldML/GPyOpt>`__ package.
 
 Installation
@@ -40,7 +40,7 @@ Dependencies
 Optional dependencies
 ^^^^^^^^^^^^^^^^^^^^^
 
-In case you want to use the hyperparameter optimization feature, you should also install:
+In case you want to use the hyperparameter optimization module, you should also install:
 
 -  GPy>=1.5.6
 -  GPyOpt>=1.0.3
