@@ -1,2 +1,0 @@
-dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,max_corrections,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
-letters,14000,6000,16,26,0.022295713424682617,0.30466246604919434,12.762304067611694,0.2041022777557373,100,list,19,21,16342.129020249205,0.044333333333333336,0.03833333333333333

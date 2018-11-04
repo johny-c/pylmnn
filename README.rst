@@ -16,7 +16,7 @@ hyper-parameters for LMNN using the excellent
 Installation
 ^^^^^^^^^^^^
 
-The code was developed in python 3.5 under Ubuntu 16.04. You can clone
+The code was developed in python 3.5 under Ubuntu 16.04 and was also tested under Ubuntu 18.04 and python 3.6. You can clone
 the repo with:
 
 ::

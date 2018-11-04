@@ -1,2 +1,0 @@
-dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,max_corrections,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
-mnist_deskewed,60000,10000,164,10,0.3834989070892334,18.74607753753662,932.4147279262543,29.775453805923462,100,sparse,46,63,226003.13708577811,0.015700000000000047,0.013700000000000045

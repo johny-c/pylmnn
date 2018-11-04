@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-__version__ = '1.6.0a'
+__version__ = '1.6.0'
 
 if __name__ == '__main__':
     here = path.abspath(path.dirname(__file__))
