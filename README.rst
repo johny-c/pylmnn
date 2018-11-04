@@ -35,7 +35,6 @@ Dependencies
 -  numpy>=1.11.2
 -  scipy>=0.18.1
 -  scikit\_learn>=0.18.1
--  matplotlib>=1.5.3
 
 Optional dependencies
 ^^^^^^^^^^^^^^^^^^^^^

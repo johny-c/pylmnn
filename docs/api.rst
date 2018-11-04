@@ -9,7 +9,7 @@ pylmnn.lmnn module
     :undoc-members:
     :show-inheritance:
 
-pylmnn.helpers module
+pylmnn.utils module
 ---------------------
 
 .. automodule:: pylmnn.utils
@@ -26,11 +26,3 @@ pylmnn.bayesopt module
     :undoc-members:
     :show-inheritance:
 
-
-pylmnn.plots module
--------------------
-
-.. automodule:: pylmnn.plots
-    :members:
-    :undoc-members:
-    :show-inheritance:
