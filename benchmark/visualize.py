@@ -5,7 +5,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 import seaborn as sns
 
-from config import BENCHMARK_DIR
+from .config import BENCHMARK_DIR
 
 DPI = 100
 COLORS = ["windows blue", "orange red", "grey", "amber"]
@@ -14,7 +14,6 @@ sns.set(palette=PALETTE)
 
 
 def plot_time__vs__imp_store(df, save_path=None):
-
     df['time_per_funcall'] = df['t_fit_lmnn'] / df['n_funcalls']
 
     # Two subplot columns
@@ -37,7 +36,6 @@ def plot_time__vs__imp_store(df, save_path=None):
     # Plot time_per_funcall against impostor_store
     # ax = axes[0]
     ax = plt.gca()
-
 
     data = df  # df_m10
     sns.barplot(x='x', order=order, y='time_per_funcall', data=data,
@@ -63,7 +61,6 @@ def plot_time__vs__imp_store(df, save_path=None):
 
 @DeprecationWarning
 def plot_metrics__vs__max_corrections(df, save_path=None):
-
     df['lmnn_error100'] = df['lmnn_error'] * 100
     # Need to show lmnn_error, n_iterations, t_fit_lmnn
     metrics = ['lmnn_error100', 'n_iterations', 't_fit_lmnn']
@@ -102,7 +99,6 @@ def plot_metrics__vs__max_corrections(df, save_path=None):
 
 
 def plot_knn__vs__lmnn(df, save_path=None):
-
     # Keep just one option for max_corrections
     # df = df[df['max_corrections'] == 10]
     # Keep just one option for impostor_store
@@ -127,7 +123,6 @@ def plot_knn__vs__lmnn(df, save_path=None):
     metrics = ['t_fit', 't_test', 'test_error%']
 
     # Two subplot columns (time, accuracy)
-
     # Set up the matplotlib figure
     fig, axes = plt.subplots(1, 3, figsize=(20, 7))
     sns.despine(left=True)
@@ -174,9 +169,8 @@ def annotateBars(row, ax):
 
 
 def gather_all_runs(log_dir, datasets=None):
-
     if datasets is None:
-        from config import DATASETS
+        from .config import DATASETS
         datasets = DATASETS
 
     df_all = pd.DataFrame()
@@ -199,11 +193,6 @@ def gather_all_runs(log_dir, datasets=None):
 
 
 def get_latest_log_dir():
-    # from argparse import ArgumentParser
-    # parser = ArgumentParser()
-    # parser.add_argument('-l', '--log-dir', type=str, default='latest')
-    # return parser
-
     log_dirs = [os.path.join(BENCHMARK_DIR, ld) for ld in
                 os.listdir(BENCHMARK_DIR) if ld.startswith('results')]
     latest_log_dir = max(log_dirs, key=os.path.getctime)
@@ -214,7 +203,6 @@ def get_latest_log_dir():
 def plot_list_vs_sparse():
     log_dir_list = 'results--03-10-2017_15-53-25'
     log_dir_sparse = 'results--03-10-2017_15-56-40'
-
 
     log_dir_list = os.path.join(BENCHMARK_DIR, log_dir_list)
     log_dir_sparse = os.path.join(BENCHMARK_DIR, log_dir_sparse)

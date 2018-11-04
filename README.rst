@@ -46,10 +46,12 @@ Here is a minimal use case:
 
 .. code-block:: python
 
+    from sklearn.neighbors import KNeighborsClassifier
     from sklearn.model_selection import train_test_split
     from sklearn.datasets import load_iris
+    from matplotlib import pyplot as plt
 
-    from pylmnn.lmnn import LargeMarginNearestNeighbor as LMNN
+    from pylmnn import LargeMarginNearestNeighbor as LMNN
     from pylmnn.plots import plot_comparison
 
 
@@ -58,24 +60,28 @@ Here is a minimal use case:
     X, y = dataset.data, dataset.target
 
     # Split in training and testing set
-    x_tr, x_te, y_tr, y_te = train_test_split(X, y, test_size=0.7, stratify=y, random_state=42)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.7, stratify=y, random_state=42)
 
     # Set up the hyperparameters
-    k_tr, k_te, dim_out, max_iter = 3, 1, X.shape[1], 180
+    k_train, k_test, n_components, max_iter = 3, 3, X.shape[1], 180
 
-    # Instantiate the classifier
-    clf = LMNN(n_neighbors=k_tr, max_iter=max_iter, n_features_out=dim_out)
+    # Instantiate the metric learner
+    lmnn = LMNN(n_neighbors=k_train, max_iter=max_iter, n_components=n_components)
 
-    # Train the classifier
-    clf = clf.fit(x_tr, y_tr)
+    # Train the metric learner
+    lmnn.fit(X_train, y_train)
+
+    # Fit the nearest neighbors classifier
+    knn = KNeighborsClassifier(n_neighbors=k_test)
+    knn.fit(lmnn.transform(X_train), y_train)
 
     # Compute the k-nearest neighbor test accuracy after applying the learned transformation
-    accuracy_lmnn = clf.score(x_te, y_te)
-    print('LMNN accuracy on test set of {} points: {:.4f}'.format(x_te.shape[0], accuracy_lmnn))
+    lmnn_acc = knn.score(lmnn.transform(X_test), y_test)
+    print('LMNN accuracy on test set of {} points: {:.4f}'.format(X_test.shape[0], lmnn_acc))
 
     # Draw a comparison plot of the test data before and after applying the learned transformation
-    plot_comparison(clf.L, x_te, y_te, dim_pref=3)
-
+    plot_comparison(lmnn.components_, X_test, y_test, dim_pref=3)
+    plt.show()
 
 You can check the examples directory for a demonstration of how to use the
 code with different datasets and how to estimate good hyperparameters with Bayesian Optimisation.

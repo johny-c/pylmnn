@@ -12,9 +12,8 @@ from sklearn.model_selection import train_test_split
 from sklearn.neighbors import KNeighborsClassifier as KNN
 from sklearn.neighbors import LargeMarginNearestNeighbor as LMNN
 
-from config import BENCHMARK_DIR, CONFIG_FILE, DATASETS
-from util.dataset_fetcher import fetch_dataset
-
+from .config import BENCHMARK_DIR, CONFIG_FILE, DATASETS
+from .util.dataset_fetcher import fetch_dataset
 
 
 class ResultsLog:
@@ -115,11 +114,10 @@ def run_benchmark(name='', **benchmark_params):
         test_size = dataset_params.get('test_size', 0.3)
 
         pca_flag = dataset_params.get('pca', False)
-        n_features_original = X.shape[1]
+        n_features = X.shape[1]
         if pca_flag:
             print('Computing principal components...')
-            n_features_out = lmnn_params['n_features_out']
-            pca = PCA(n_components=n_features_out, random_state=42)
+            pca = PCA(n_components=lmnn_params['n_components'], random_state=42)
             pca.fit(X)
             X = pca.transform(X)
             if X_test is not None:
@@ -135,8 +133,7 @@ def run_benchmark(name='', **benchmark_params):
 
             result = single_run(X_tr, y_tr, X_te, y_te, lmnn_params,
                                 dataset_name)
-            results_log.append(n_features_original=n_features_original,
-                               pca_flag=pca_flag, **result)
+            results_log.append(n_features=n_features, pca_flag=pca_flag, **result)
 
         results_log.save()
 

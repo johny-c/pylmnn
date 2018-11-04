@@ -1,14 +1,13 @@
 from sklearn.neighbors import KNeighborsClassifier
-from lmnn import LargeMarginNearestNeighbor
 from sklearn.model_selection import train_test_split
 from sklearn.datasets import fetch_olivetti_faces
 
+from pylmnn import LargeMarginNearestNeighbor
 
 data = fetch_olivetti_faces()
 X, y = data.data, data.target
 
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3,
-                                                    stratify=y)
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, stratify=y)
 
 knn = KNeighborsClassifier(n_neighbors=3)
 

@@ -1,4 +1,4 @@
-n_features_original,pca_flag,dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
+n_features,pca_flag,dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
 4,False,iris,105,45,4,3,0.0010166168212890625,0.12388324737548828,0.36708974838256836,0.10244894027709961,auto,16,23,1957.9868126808992,0.0,0.0
 4,False,iris,105,45,4,3,0.0003230571746826172,0.10274982452392578,0.21177005767822266,0.1019446849822998,auto,13,16,1789.846954633801,0.022222222222222254,0.022222222222222254
 4,False,iris,105,45,4,3,0.00042176246643066406,0.10375118255615234,0.2541687488555908,0.10225343704223633,auto,13,14,1771.4795732758532,0.0,0.0

@@ -12,7 +12,7 @@ pylmnn.lmnn module
 pylmnn.helpers module
 ---------------------
 
-.. automodule:: pylmnn.helpers
+.. automodule:: pylmnn.utils
     :members:
     :undoc-members:
     :show-inheritance:

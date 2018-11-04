@@ -2,8 +2,7 @@ import os
 import csv
 import numpy as np
 from scipy.io import loadmat
-from sklearn.datasets import get_data_home, fetch_olivetti_faces, \
-    fetch_mldata, load_iris
+from sklearn.datasets import get_data_home, fetch_olivetti_faces, fetch_mldata, load_iris
 
 
 def fetch_letters(data_dir=None):
@@ -23,8 +22,8 @@ def fetch_letters(data_dir=None):
     return X, y, None, None
 
 
-def decompress_z(fname_in, fname_out=None):
-    from util import unlzw
+def _decompress_z(fname_in, fname_out=None):
+    from benchmark.util import unlzw
     fname_out = fname_in[:-2] if fname_out is None else fname_out
     print('Extracting {} to {}...'.format(fname_in, fname_out))
     with open(fname_in, 'rb') as fin, open(fname_out, 'wb') as fout:
@@ -54,7 +53,7 @@ def fetch_isolet(data_dir=None):
                         url))
                 request.urlretrieve(url=url + train, filename=path_train)
             # os.system('gzip -d ' + path_train)
-            decompress_z(path_train)
+            _decompress_z(path_train)
         if not os.path.exists(path_test[:-2]):
             if not os.path.exists(path_test):
                 print(
@@ -62,7 +61,7 @@ def fetch_isolet(data_dir=None):
                         url))
                 request.urlretrieve(url=url + test, filename=path_test)
             # os.system('gzip -d ' + path_test)
-            decompress_z(path_test)
+            _decompress_z(path_test)
     else:
         print('Found Isolated Letter Speech Recognition data set!')
 

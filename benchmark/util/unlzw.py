@@ -27,7 +27,6 @@ def unlzw(data):
     # Mark Adler
     # madler@alumni.caltech.edu
 
-
     # Convert input data stream to byte array, and get length of that array
     try:
         ba_in = bytearray(data)

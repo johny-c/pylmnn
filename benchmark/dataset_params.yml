@@ -5,7 +5,7 @@ usps:
   pca : True
   lmnn_params:
     n_neighbors : 14
-    n_features_out : 20
+    n_components : 20
     max_iter : 187
 
 mnist_deskewed:
@@ -13,7 +13,7 @@ mnist_deskewed:
   pca : False
   lmnn_params:
     n_neighbors : 3
-    n_features_out : 164
+    n_components : 164
     max_iter : 35
 
 mnistPCA:
@@ -21,7 +21,7 @@ mnistPCA:
   pca : False
   lmnn_params:
     n_neighbors : 3
-    n_features_out : 300
+    n_components : 300
     max_iter : 120
 
 olivetti_faces:
@@ -30,7 +30,7 @@ olivetti_faces:
   pca : True
   lmnn_params:
     n_neighbors : 3
-    n_features_out : 18
+    n_components : 18
     max_iter : 88
 
 letters:
@@ -38,7 +38,7 @@ letters:
   test_size : 0.3
   lmnn_params:
     n_neighbors : 1
-    n_features_out : 16
+    n_components : 16
     max_iter : 82
 
 isolet:
@@ -46,7 +46,7 @@ isolet:
   pca : True
   lmnn_params:
     n_neighbors : 15
-    n_features_out : 172
+    n_components : 172
     max_iter : 180
 
 iris:
@@ -56,5 +56,5 @@ iris:
   lmnn_params:
     n_neighbors : 9
     max_iter : 100
-    n_features_out : 4
+    n_components : 4
 

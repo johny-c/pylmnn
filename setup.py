@@ -4,8 +4,7 @@ from setuptools import setup, find_packages
 from codecs import open
 from os import path
 
-
-__version__ = '1.5.2'
+__version__ = '1.6.0a'
 
 if __name__ == '__main__':
     here = path.abspath(path.dirname(__file__))
@@ -13,7 +12,6 @@ if __name__ == '__main__':
     # Get the long description from the README file
     with open(path.join(here, 'README.rst'), encoding='utf-8') as f:
         long_description = f.read()
-
 
     setup(
         name='PyLMNN',
@@ -26,16 +24,16 @@ if __name__ == '__main__':
         license='new BSD',
 
         classifiers=[
-                    'Development Status :: 4 - Beta',
-                    'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
-                    'Natural Language :: English',
-                    'Operating System :: MacOS :: MacOS X',
-                    'Operating System :: Microsoft :: Windows',
-                    'Operating System :: POSIX :: Linux',
-                    'Programming Language :: Python :: 3',
-                    'Programming Language :: Python :: 3.5',
-                    'Programming Language :: Python :: 3.6',
-                    'Topic :: Scientific/Engineering :: Artificial Intelligence'],
+            'Development Status :: 4 - Beta',
+            'License :: OSI Approved :: GNU General Public License v3 (GPLv3)',
+            'Natural Language :: English',
+            'Operating System :: MacOS :: MacOS X',
+            'Operating System :: Microsoft :: Windows',
+            'Operating System :: POSIX :: Linux',
+            'Programming Language :: Python :: 3',
+            'Programming Language :: Python :: 3.5',
+            'Programming Language :: Python :: 3.6',
+            'Topic :: Scientific/Engineering :: Artificial Intelligence'],
 
         packages=find_packages(exclude=['contrib', 'docs', 'tests']),
         package_dir={'pylmnn': 'pylmnn'},
@@ -44,7 +42,7 @@ if __name__ == '__main__':
                           'scikit_learn>=0.18',
                           'matplotlib>=1.5.3'],
 
-
-        test_suite='nose.collector',
-        tests_require=['nose', 'nose-cover3']
+        tests_require=[
+            'mock>=0.8, <3.0',
+            'pytest>=3.0.1, <4.0'],
     )

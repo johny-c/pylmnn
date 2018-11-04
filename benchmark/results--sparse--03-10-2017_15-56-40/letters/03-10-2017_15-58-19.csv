@@ -1,2 +1,2 @@
-n_features_original,pca_flag,dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
+n_features,pca_flag,dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
 16,False,letters,14000,6000,16,26,0.023377180099487305,0.3142731189727783,13.921711206436157,0.2051560878753662,sparse,19,21,16342.129020249196,0.044333333333333336,0.03833333333333333

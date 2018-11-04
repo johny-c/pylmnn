@@ -1,4 +1,4 @@
-n_features_original,pca_flag,dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
+n_features,pca_flag,dataset,n_train_samples,n_test_samples,n_features,n_classes,t_fit_knn,t_test_knn,t_fit_lmnn,t_test_lmnn,imp_store,n_iterations,n_funcalls,objective,knn_error,lmnn_error
 4096,True,olivetti_faces,280,120,18,40,0.0004572868347167969,0.10239815711975098,0.982069730758667,0.10278534889221191,auto,45,92,1593.0719700205987,0.14166666666666672,0.050000000000000044
 4096,True,olivetti_faces,280,120,18,40,0.0009505748748779297,0.10231399536132812,0.9443457126617432,0.1034386157989502,auto,38,91,1506.6695165712406,0.1333333333333333,0.033333333333333326
 4096,True,olivetti_faces,280,120,18,40,0.0003864765167236328,0.1022031307220459,0.7254762649536133,0.10255289077758789,auto,39,70,1406.2397662912078,0.19999999999999996,0.07499999999999996

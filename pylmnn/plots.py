@@ -3,15 +3,15 @@ from mpl_toolkits.mplot3d import Axes3D  # Needed for projection='3d'
 from sklearn import manifold
 
 
-def plot_comparison(L, X, y, dim_pref=2, t_sne=False):
+def plot_comparison(components, X, y, dim_pref=2, t_sne=False):
     """Draw a scatter plot of points, colored by their labels, before and after applying a learned transformation
 
     Parameters
     ----------
-    L : array_like
-        The learned transformation in an array with shape (n_features_out, n_features_in).
+    components : array_like
+        The learned transformation in an array with shape (n_components, n_features).
     X : array_like
-        An array of data samples with shape (n_samples, n_features_in).
+        An array of data samples with shape (n_samples, n_features).
     y : array_like
         An array of data labels with shape (n_samples,).
     dim_pref : int
@@ -29,11 +29,11 @@ def plot_comparison(L, X, y, dim_pref=2, t_sne=False):
         print("Computing t-SNE embedding")
         tsne = manifold.TSNE(n_components=dim_pref, init='pca', random_state=0)
         X_tsne = tsne.fit_transform(X)
-        Lx_tsne = tsne.fit_transform(X.dot(L.T))
+        Lx_tsne = tsne.fit_transform(X.dot(components.T))
         X = X_tsne
         Lx = Lx_tsne
     else:
-        Lx = X.dot(L.T)
+        Lx = X.dot(components.T)
 
     fig = plt.figure()
     if X.shape[1] > 2 and dim_pref == 3:
@@ -50,4 +50,3 @@ def plot_comparison(L, X, y, dim_pref=2, t_sne=False):
         ax = fig.add_subplot(122)
         ax.scatter(Lx[:, 0], Lx[:, 1], c=y)
         ax.set_title('Transformed Data')
-
