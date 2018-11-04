@@ -1,7 +1,7 @@
 from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 
-from pylmnn import find_hyperparams
+from pylmnn.bayesopt import find_hyperparams
 
 
 X, y = load_iris(return_X_y=True)
