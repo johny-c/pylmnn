@@ -55,10 +55,8 @@ Here is a minimal use case:
     from sklearn.neighbors import KNeighborsClassifier
     from sklearn.model_selection import train_test_split
     from sklearn.datasets import load_iris
-    from matplotlib import pyplot as plt
 
     from pylmnn import LargeMarginNearestNeighbor as LMNN
-    from pylmnn.plots import plot_comparison
 
 
     # Load a data set
@@ -84,10 +82,6 @@ Here is a minimal use case:
     # Compute the k-nearest neighbor test accuracy after applying the learned transformation
     lmnn_acc = knn.score(lmnn.transform(X_test), y_test)
     print('LMNN accuracy on test set of {} points: {:.4f}'.format(X_test.shape[0], lmnn_acc))
-
-    # Draw a comparison plot of the test data before and after applying the learned transformation
-    plot_comparison(lmnn.components_, X_test, y_test, dim_pref=3)
-    plt.show()
 
 You can check the examples directory for a demonstration of how to use the
 code with different datasets and how to estimate good hyperparameters with Bayesian Optimisation.
