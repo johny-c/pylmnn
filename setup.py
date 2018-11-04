@@ -39,8 +39,7 @@ if __name__ == '__main__':
         package_dir={'pylmnn': 'pylmnn'},
         install_requires=['numpy>=1.11',
                           'scipy>=0.18',
-                          'scikit_learn>=0.18',
-                          'matplotlib>=1.5.3'],
+                          'scikit_learn>=0.18'],
 
         tests_require=[
             'mock>=0.8, <3.0',
