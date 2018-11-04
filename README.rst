@@ -35,9 +35,15 @@ Dependencies
 -  numpy>=1.11.2
 -  scipy>=0.18.1
 -  scikit\_learn>=0.18.1
+-  matplotlib>=1.5.3
+
+Optional dependencies
+^^^^^^^^^^^^^^^^^^^^^
+
+In case you want to use the hyperparameter optimization feature, you should also install:
+
 -  GPy>=1.5.6
 -  GPyOpt>=1.0.3
--  matplotlib>=1.5.3
 
 Usage
 ^^^^^
