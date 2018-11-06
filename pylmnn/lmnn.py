@@ -168,7 +168,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
     Examples
     --------
-    >>> from sklearn.neighbors import LargeMarginNearestNeighbor
+    >>> from pylmnn import LargeMarginNearestNeighbor
     >>> from sklearn.neighbors import KNeighborsClassifier
     >>> from sklearn.datasets import load_iris
     >>> from sklearn.model_selection import train_test_split
@@ -1259,7 +1259,7 @@ def make_lmnn_pipeline(
 
     Examples
     --------
-    >>> from sklearn.neighbors import make_lmnn_pipeline
+    >>> from pylmnn import make_lmnn_pipeline
     >>> from sklearn.datasets import load_iris
     >>> from sklearn.model_selection import train_test_split
     >>> X, y = load_iris(return_X_y=True)
