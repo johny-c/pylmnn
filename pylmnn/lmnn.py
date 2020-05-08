@@ -24,8 +24,14 @@ from sklearn.utils.extmath import row_norms, safe_sparse_dot
 from sklearn.utils.random import check_random_state
 from sklearn.utils.multiclass import check_classification_targets
 from sklearn.utils.validation import check_is_fitted, check_array, check_X_y
-from sklearn.externals.six import integer_types, string_types
 from sklearn.exceptions import ConvergenceWarning
+try:
+    from six import integer_types, string_types
+except ImportError:
+    try:
+        from sklearn.externals.six import integer_types, string_types
+    except ImportError:
+        raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
 
 from .utils import _euclidean_distances_without_checks
 
