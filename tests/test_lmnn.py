@@ -17,8 +17,16 @@ from sklearn.metrics.pairwise import paired_euclidean_distances
 from sklearn.metrics.pairwise import euclidean_distances
 from sklearn.model_selection import train_test_split
 from sklearn.utils.extmath import row_norms
-from sklearn.externals.six.moves import cStringIO as StringIO
 from sklearn.exceptions import ConvergenceWarning
+
+try:
+    from six.moves import cStringIO as StringIO
+except ImportError:
+    try:
+        from sklearn.externals.six.moves import cStringIO as StringIO
+    except ImportError:
+        raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
+
 
 from pylmnn import LargeMarginNearestNeighbor
 from pylmnn import make_lmnn_pipeline
