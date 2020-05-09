@@ -7,9 +7,6 @@ from sklearn.utils.testing import assert_allclose
 from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_raise_message
 from sklearn.utils.testing import assert_warns_message
-from sklearn.utils.testing import assert_equal
-from sklearn.utils.testing import assert_true
-from sklearn.utils.testing import assert_false
 
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
@@ -27,12 +24,10 @@ except ImportError:
     except ImportError:
         raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
 
-
 from pylmnn import LargeMarginNearestNeighbor
 from pylmnn import make_lmnn_pipeline
 from pylmnn.lmnn import _paired_distances_blockwise
 from pylmnn.utils import _euclidean_distances_without_checks
-
 
 rng = np.random.RandomState(0)
 # load and shuffle iris dataset
@@ -67,7 +62,7 @@ def test_neighbors_iris():
     knn = KNeighborsClassifier(n_neighbors=lmnn.n_neighbors_)
     knn.fit(LX, iris_target)
 
-    assert_true(knn.score(LX, iris_target) > 0.95)
+    assert (knn.score(LX, iris_target) > 0.95)
 
 
 def test_neighbors_digits():
@@ -93,7 +88,7 @@ def test_neighbors_digits():
     knn.fit(lmnn.transform(X_train.astype(float)), y_train)
     score_float = knn.score(lmnn.transform(X_test.astype(float)), y_test)
 
-    assert_equal(score_uint8, score_float)
+    assert (score_uint8 == score_float)
 
 
 def test_params_validation():
@@ -325,13 +320,13 @@ def test_warm_start_effectiveness():
     diff_cold = np.sum(np.abs(transformation_cold_plus_one -
                               transformation_cold))
 
-    assert_true(diff_warm < 2.0,
-                "Transformer changed significantly after one iteration even "
-                "though it was warm-started.")
+    assert (diff_warm < 2.0,
+            "Transformer changed significantly after one iteration even "
+            "though it was warm-started.")
 
-    assert_true(diff_cold > diff_warm,
-                "Cold-started transformer changed less significantly than "
-                "warm-started transformer after one iteration.")
+    assert (diff_cold > diff_warm,
+            "Cold-started transformer changed less significantly than "
+            "warm-started transformer after one iteration.")
 
 
 def test_max_impostors():
@@ -356,7 +351,7 @@ def test_neighbors_params():
     lmnn.fit(iris_data, iris_target)
     components_euclidean = lmnn.components_
 
-    assert_false(np.allclose(components_hamming, components_euclidean))
+    assert (not np.allclose(components_hamming, components_euclidean))
 
 
 def test_impostor_store():
@@ -377,7 +372,6 @@ def test_impostor_store():
 
 
 def test_callback():
-
     lmnn = LargeMarginNearestNeighbor(n_neighbors=3, callback='my_cb')
     assert_raise_message(ValueError,
                          '`callback` is not callable.',
@@ -403,7 +397,7 @@ def test_callback():
         sys.stdout = old_stdout
 
     # check output
-    assert('{} iterations remaining...'.format(max_iter-1) in out)
+    assert ('{} iterations remaining...'.format(max_iter - 1) in out)
 
 
 def test_store_opt_result():
@@ -415,7 +409,7 @@ def test_store_opt_result():
                                       store_opt_result=True)
     lmnn.fit(X_train, y_train)
     transformation = lmnn.opt_result_.x
-    assert_equal(transformation.size, X.shape[1]**2)
+    assert (transformation.size == X.shape[1] ** 2)
 
 
 def test_verbose():
@@ -432,8 +426,8 @@ def test_verbose():
         sys.stdout = old_stdout
 
     # check output
-    assert("[LargeMarginNearestNeighbor]" in out)
-    assert("Finding principal components" in out)
+    assert ("[LargeMarginNearestNeighbor]" in out)
+    assert ("Finding principal components" in out)
     assert ("Finding the target neighbors" in out)
     assert ("Computing static part of the gradient" in out)
     assert ("Finding principal components" in out)
@@ -452,7 +446,7 @@ def test_verbose():
         sys.stdout = old_stdout
 
     # check output
-    assert(out == '')
+    assert (out == '')
 
 
 def test_random_state():
@@ -484,7 +478,7 @@ def test_random_state():
     lmnn.fit(X, y)
     transformation_3 = lmnn.components_
 
-    assert_false(np.allclose(transformation_2, transformation_3))
+    assert (not np.allclose(transformation_2, transformation_3))
 
 
 def test_same_lmnn_parallel():
@@ -534,7 +528,6 @@ def test_singleton_class():
 
 
 def test_convergence_warning():
-
     lmnn = LargeMarginNearestNeighbor(n_neighbors=3, max_iter=2, verbose=1)
     cls_name = lmnn.__class__.__name__
     assert_warns_message(ConvergenceWarning,
@@ -597,4 +590,4 @@ def test_pipeline_equivalency():
 
     score_pipe = lmnn_pipe.score(X_test, y_test)
 
-    assert_equal(score, score_pipe)
+    assert (score == score_pipe)
