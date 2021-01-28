@@ -1,12 +1,21 @@
 import sys
 import numpy as np
 
-from sklearn.utils.testing import assert_array_equal
-from sklearn.utils.testing import assert_array_almost_equal
-from sklearn.utils.testing import assert_allclose
-from sklearn.utils.testing import assert_raises
-from sklearn.utils.testing import assert_raise_message
-from sklearn.utils.testing import assert_warns_message
+try:
+    # sklearn moved testing utils between 0.21 and 0.24
+    from sklearn.utils._testing import assert_array_equal
+    from sklearn.utils._testing import assert_array_almost_equal
+    from sklearn.utils._testing import assert_allclose
+    from sklearn.utils._testing import assert_raises
+    from sklearn.utils._testing import assert_raise_message
+    from sklearn.utils._testing import assert_warns_message
+except ImportError:
+    from sklearn.utils.testing import assert_array_equal
+    from sklearn.utils.testing import assert_array_almost_equal
+    from sklearn.utils.testing import assert_allclose
+    from sklearn.utils.testing import assert_raises
+    from sklearn.utils.testing import assert_raise_message
+    from sklearn.utils.testing import assert_warns_message
 
 from sklearn import datasets
 from sklearn.neighbors import KNeighborsClassifier
@@ -107,7 +116,6 @@ def test_params_validation():
     assert_raises(TypeError, LMNN(n_jobs='yes').fit, X, y)
     assert_raises(TypeError, LMNN(warm_start=1).fit, X, y)
     assert_raises(TypeError, LMNN(impostor_store=0.5).fit, X, y)
-    assert_raises(TypeError, LMNN(neighbors_params=65).fit, X, y)
     assert_raises(TypeError, LMNN(weight_push_loss='0.3').fit, X, y)
 
     # ValueError
@@ -339,21 +347,6 @@ def test_max_impostors():
     lmnn.fit(iris_data, iris_target)
 
 
-def test_neighbors_params():
-    from scipy.spatial.distance import hamming
-
-    params = {'algorithm': 'brute', 'metric': hamming}
-    lmnn = LargeMarginNearestNeighbor(n_neighbors=3, neighbors_params=params)
-    lmnn.fit(iris_data, iris_target)
-    components_hamming = lmnn.components_
-
-    lmnn = LargeMarginNearestNeighbor(n_neighbors=3)
-    lmnn.fit(iris_data, iris_target)
-    components_euclidean = lmnn.components_
-
-    assert (not np.allclose(components_hamming, components_euclidean))
-
-
 def test_impostor_store():
     k = 3
     lmnn = LargeMarginNearestNeighbor(n_neighbors=k,
@@ -366,7 +359,7 @@ def test_impostor_store():
     lmnn.fit(iris_data, iris_target)
     components_sparse = lmnn.components_
 
-    assert_array_almost_equal(components_list, components_sparse,
+    assert_array_almost_equal(components_list, components_sparse, decimal=5,
                               err_msg='Toggling `impostor_store` results in '
                                       'a different solution.')
 
@@ -381,20 +374,20 @@ def test_callback():
 
     def my_cb(transformation, n_iter):
         rem_iter = max_iter - n_iter
-        print('{} iterations remaining...'.format(rem_iter))
+        print('{} iterations remaining...'.format(rem_iter), file=sys.stderr)
 
     # assert that my_cb is called
-    old_stdout = sys.stdout
-    sys.stdout = StringIO()
+    old_stderr = sys.stderr
+    sys.stderr = StringIO()
 
     lmnn = LargeMarginNearestNeighbor(n_neighbors=3, callback=my_cb,
                                       max_iter=max_iter, verbose=1)
     try:
         lmnn.fit(iris_data, iris_target)
     finally:
-        out = sys.stdout.getvalue()
-        sys.stdout.close()
-        sys.stdout = old_stdout
+        out = sys.stderr.getvalue()
+        sys.stderr.close()
+        sys.stderr = old_stderr
 
     # check output
     assert ('{} iterations remaining...'.format(max_iter - 1) in out)
@@ -414,16 +407,16 @@ def test_store_opt_result():
 
 def test_verbose():
     # assert there is proper output when verbose = 1
-    old_stdout = sys.stdout
-    sys.stdout = StringIO()
+    old_stderr = sys.stderr
+    sys.stderr = StringIO()
 
     lmnn = LargeMarginNearestNeighbor(n_neighbors=3, verbose=1)
     try:
         lmnn.fit(iris_data, iris_target)
     finally:
-        out = sys.stdout.getvalue()
-        sys.stdout.close()
-        sys.stdout = old_stdout
+        out = sys.stderr.getvalue()
+        sys.stderr.close()
+        sys.stderr = old_stderr
 
     # check output
     assert ("[LargeMarginNearestNeighbor]" in out)
@@ -434,16 +427,16 @@ def test_verbose():
     assert ("Training took" in out)
 
     # assert by default there is no output (verbose=0)
-    old_stdout = sys.stdout
-    sys.stdout = StringIO()
+    old_stderr = sys.stderr
+    sys.stderr = StringIO()
 
     lmnn = LargeMarginNearestNeighbor(n_neighbors=3)
     try:
         lmnn.fit(iris_data, iris_target)
     finally:
-        out = sys.stdout.getvalue()
-        sys.stdout.close()
-        sys.stdout = old_stdout
+        out = sys.stderr.getvalue()
+        sys.stderr.close()
+        sys.stderr = old_stderr
 
     # check output
     assert (out == '')

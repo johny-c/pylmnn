@@ -1,6 +1,37 @@
+import sys
+import time
+import datetime
+import math
 import numpy as np
 from sklearn.utils.extmath import row_norms, safe_sparse_dot
 
+def eprint(message):
+    ts = datetime.datetime.now().isoformat()
+    print(ts+" "+message, file=sys.stderr)
+
+class ReservoirSample:
+    def __init__(self, k, random_state):
+        self.random_state = random_state
+        self.reservoir = []
+        self.w = math.exp(math.log(self.random_state.rand())/k)
+        self.k = k
+        self.i = 0
+        self.next_i = self.k + math.floor(
+                math.log(self.random_state.random())/math.log(1-self.w)) + 1
+
+    def extend(self, s):
+        for i, v in enumerate(s, start=self.i):
+            # initialize reservoir array
+            if i < self.k:
+                self.reservoir.append(v)
+            elif i == self.next_i:
+                #replace a random item of the reservoir with item i
+                self.reservoir[self.random_state.randint(0,self.k)] = v
+                self.w = self.w * math.exp(math.log(self.random_state.random())/self.k)
+                self.next_i = (i + 1 +
+                        math.floor(math.log(self.random_state.random())/math.log(1-self.w)))
+
+        self.i = i
 
 def _euclidean_distances_without_checks(X, Y=None, Y_norm_squared=None,
                                         squared=False, X_norm_squared=None,

@@ -19,6 +19,7 @@ from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.pipeline import Pipeline
 from sklearn.neighbors import NearestNeighbors, KNeighborsClassifier
 from sklearn.decomposition import PCA
+from sklearn.metrics import pairwise_distances_chunked
 from sklearn.utils import gen_batches
 from sklearn.utils.extmath import row_norms, safe_sparse_dot
 from sklearn.utils.random import check_random_state
@@ -33,7 +34,7 @@ except ImportError:
     except ImportError:
         raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
 
-from .utils import _euclidean_distances_without_checks
+from .utils import _euclidean_distances_without_checks, eprint, ReservoirSample
 
 
 class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
@@ -76,11 +77,6 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         Maximum number of impostors to consider per iteration. In the worst
         case this will allow ``max_impostors * n_neighbors`` constraints to be
         active.
-
-    neighbors_params : dict, optional (default=None)
-        Parameters to pass to a :class:`neighbors.NearestNeighbors` instance -
-        apart from ``n_neighbors`` - that will be used to select the target
-        neighbors.
 
     weight_push_loss : float, optional (default=0.5)
         A float in (0, 1], weighting the push loss. This is parameter ``μ``
@@ -220,7 +216,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
     """
 
     def __init__(self, n_neighbors=3, n_components=None, init='pca',
-                 warm_start=False, max_impostors=500000, neighbors_params=None,
+                 warm_start=False, max_impostors=500000,
                  weight_push_loss=0.5, impostor_store='auto', max_iter=50,
                  tol=1e-5, callback=None, store_opt_result=False, verbose=0,
                  random_state=None, n_jobs=1):
@@ -231,7 +227,6 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         self.init = init
         self.warm_start = warm_start
         self.max_impostors = max_impostors
-        self.neighbors_params = neighbors_params
         self.weight_push_loss = weight_push_loss
         self.impostor_store = impostor_store
         self.max_iter = max_iter
@@ -327,7 +322,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                     cls_name, opt_result.message),
                      ConvergenceWarning)
 
-            print('[{}] Training took {:8.2f}s.'.format(cls_name, t_train))
+            eprint('[{}] Training took {:8.2f}s.'.format(cls_name, t_train))
 
         # Optionally store information returned by the optimizer
         if self.store_opt_result:
@@ -524,14 +519,6 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         self.n_neighbors_ = min(self.n_neighbors, min_non_singleton_size - 1)
 
-        neighbors_params = self.neighbors_params
-        if neighbors_params is not None:
-            _check_scalar(neighbors_params, 'neighbors_params', dict)
-            neighbors_params.setdefault('n_jobs', self.n_jobs)
-            # Attempt to instantiate a NearestNeighbors instance here to
-            # raise any errors before actually fitting
-            NearestNeighbors(n_neighbors=self.n_neighbors_, **neighbors_params)
-
         return X, y_inverse, classes_inverse_non_singleton, init
 
     def _initialize(self, X, init):
@@ -564,14 +551,13 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                       random_state=self.random_state_)
             t_pca = time.time()
             if self.verbose:
-                print('[{}] Finding principal components...'.format(
+                eprint('[{}] Finding principal components...'.format(
                     self.__class__.__name__))
-                sys.stdout.flush()
 
             pca.fit(X)
             if self.verbose:
                 t_pca = time.time() - t_pca
-                print('[{}] Found principal components in {:5.2f}s.'.format(
+                eprint('[{}] Found principal components in {:5.2f}s.'.format(
                     self.__class__.__name__, t_pca))
 
             transformation = pca.components_
@@ -607,20 +593,15 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         t_start = time.time()
         if self.verbose:
-            print('[{}] Finding the target neighbors...'.format(
+            eprint('[{}] Finding the target neighbors...'.format(
                 self.__class__.__name__))
-            sys.stdout.flush()
 
-        neighbors_params = self.neighbors_params
-        if neighbors_params is None:
-            neighbors_params = {}
-
-        neighbors_params.setdefault('n_jobs', self.n_jobs)
         target_neighbors = _select_target_neighbors(
-            X, y, self.n_neighbors_, classes=classes, **neighbors_params)
+            X, y, self.n_neighbors_, classes=classes, verbose=self.verbose,
+            n_jobs=self.n_jobs,)
 
         if self.verbose:
-            print('[{}] Found the target neighbors in {:5.2f}s.'.format(
+            eprint('[{}] Found the target neighbors in {:5.2f}s.'.format(
                 self.__class__.__name__, time.time() - t_start))
 
         return target_neighbors
@@ -645,7 +626,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         t_grad_static = time.time()
         if self.verbose:
-            print('[{}] Computing static part of the gradient...'.format(
+            eprint('[{}] Computing static part of the gradient...'.format(
                 self.__class__.__name__))
 
         n_samples, n_neighbors = target_neighbors.shape
@@ -657,7 +638,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         if self.verbose:
             t_grad_static = time.time() - t_grad_static
-            print('[{}] Computed static part of the gradient in {:5.2f}s.'
+            eprint('[{}] Computed static part of the gradient in {:5.2f}s.'
                   .format(self.__class__.__name__, t_grad_static))
 
         return grad_target_neighbors
@@ -724,8 +705,8 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                 header_fmt = '{:>10} {:>20} {:>20} {:>10}'
                 header = header_fmt.format(*header_fields)
                 cls_name = self.__class__.__name__
-                print('[{}]'.format(cls_name))
-                print('[{}] {}\n[{}] {}'.format(cls_name, header,
+                eprint('[{}]'.format(cls_name))
+                eprint('[{}] {}\n[{}] {}'.format(cls_name, header,
                                                 cls_name, '-' * len(header)))
 
         t_funcall = time.time()
@@ -761,9 +742,8 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         if self.verbose:
             t_funcall = time.time() - t_funcall
             values_fmt = '[{}] {:>10} {:>20.6e} {:>20,} {:>10.2f}'
-            print(values_fmt.format(self.__class__.__name__, self.n_iter_,
+            eprint(values_fmt.format(self.__class__.__name__, self.n_iter_,
                                     loss, n_active_triplets, t_funcall))
-            sys.stdout.flush()
 
         return loss, grad.ravel()
 
@@ -810,14 +790,10 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                 # in memory
                 imp_ind = _find_impostors_blockwise(
                     X_embedded[ind_out], X_embedded[ind_in],
-                    margin_radii[ind_out], margin_radii[ind_in])
+                    margin_radii[ind_out], margin_radii[ind_in],
+                    self.max_impostors, self.random_state_)
 
                 if len(imp_ind):
-                    # sample impostors if they are too many
-                    if len(imp_ind) > self.max_impostors:
-                        imp_ind = self.random_state_.choice(
-                            imp_ind, self.max_impostors, replace=False)
-
                     dims = (len(ind_out), len(ind_in))
                     ii, jj = np.unravel_index(imp_ind, shape=dims)
                     # Convert indices to refer to the original data matrix
@@ -854,16 +830,10 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                 imp_ind, dist_batch = _find_impostors_blockwise(
                     X_embedded[ind_out], X_embedded[ind_in],
                     margin_radii[ind_out], margin_radii[ind_in],
+                    self.max_impostors, self.random_state_,
                     return_distance=True)
 
                 if len(imp_ind):
-                    # sample impostors if they are too many
-                    if len(imp_ind) > self.max_impostors:
-                        ind_sampled = self.random_state_.choice(
-                            len(imp_ind), self.max_impostors, replace=False)
-                        imp_ind = imp_ind[ind_sampled]
-                        dist_batch = dist_batch[ind_sampled]
-
                     dims = (len(ind_out), len(ind_in))
                     ii, jj = np.unravel_index(imp_ind, shape=dims)
                     # Convert indices to refer to the original data matrix
@@ -895,7 +865,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 #######################
 
 
-def _select_target_neighbors(X, y, n_neighbors, classes=None, **nn_kwargs):
+def _select_target_neighbors(X, y, n_neighbors, classes=None, verbose=0, n_jobs=1):
     """Find the target neighbors of each data sample.
 
     Parameters
@@ -913,9 +883,11 @@ def _select_target_neighbors(X, y, n_neighbors, classes=None, **nn_kwargs):
         The non-singleton classes, encoded as integers in [0, n_classes).
         If None (default), they will be inferred from ``y``.
 
-    **nn_kwargs : keyword arguments
-        Parameters to be passed to a :class:`neighbors.NearestNeighbors`
-        instance except from ``n_neighbors``.
+    verbose : int, optional (default=0)
+        Controls debug printing, as in LargeMargineNearestNeighbors
+
+    n_jobs : int, optional (default=1)
+        Controls parallelism in sklearn.metrics.pairwise_distances_chunked
 
     Returns
     -------
@@ -925,22 +897,41 @@ def _select_target_neighbors(X, y, n_neighbors, classes=None, **nn_kwargs):
 
     target_neighbors = np.zeros((X.shape[0], n_neighbors), dtype=np.intp)
 
-    nn = NearestNeighbors(n_neighbors=n_neighbors, **nn_kwargs)
-
     if classes is None:
         classes = np.unique(y)
 
     for class_id in classes:
         ind_class, = np.where(y == class_id)
-        nn.fit(X[ind_class])
-        neigh_ind = nn.kneighbors(return_distance=False)
-        target_neighbors[ind_class] = ind_class[neigh_ind]
+
+        def closest_k(dd, start_row):
+            " "" closest k indicies for a chunk of a pairwise distance matrix "" "
+            if verbose:
+                eprint('[{}] processing block {} starting at {}'.format(
+                    "SelectTargetNeighbors", dd.shape, start_row))
+
+            # inf on the diagonal, offset for current chunk
+            b = np.full(dd.shape[1]-start_row, np.inf)
+            np.fill_diagonal(dd[:, start_row:], b)
+
+            # get the closest k indexes, no need to offset for (row) chunk
+            nn = np.argpartition(dd, n_neighbors)[..., :n_neighbors]
+
+            return nn
+
+        start_row = 0
+        for nn_chunk in pairwise_distances_chunked(
+                X[ind_class], squared=True, reduce_func=closest_k,
+                n_jobs=n_jobs):
+            # stash the closest k neighbors in the right part of target_neighbors
+            target_neighbors[ind_class[start_row:start_row + nn_chunk.shape[0]]] = ind_class[nn_chunk]
+            start_row += nn_chunk.shape[0]
 
     return target_neighbors
 
 
-def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b,
-                              return_distance=False, block_size=8):
+def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
+                              random_state, return_distance=False,
+                              block_size=8):
     """Find (sample, impostor) pairs in blocks to avoid large memory usage.
 
     Parameters
@@ -957,9 +948,15 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b,
     radii_b : array, shape (n_samples_b,)
         Squared distances of the samples in ``X_b`` to their margins.
 
+    max_impostors: ina
+        Maximum number of impostors to return. Returned impostors are sampled.
+
     block_size : int, optional (default=8)
         The maximum number of mebibytes (MiB) of memory to use at a time for
         calculating paired squared distances.
+
+    random_state : numpy.RandomState
+        A pseudo random number generator object
 
     return_distance : bool, optional (default=False)
         Whether to return the squared distances to the impostors.
@@ -981,7 +978,7 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b,
     bytes_per_row = X_b.shape[0] * X_b.itemsize
     block_n_rows = int(block_size*1024*1024 // bytes_per_row)
 
-    imp_indices, imp_distances = [], []
+    impostors = ReservoirSample(max_impostors, random_state=random_state)
 
     # X_b squared norm stays constant, so pre-compute it to get a speed-up
     X_b_norm_squared = row_norms(X_b, squared=True)[np.newaxis, :]
@@ -999,21 +996,24 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b,
 
         if len(ind):
             ind_plus_offset = ind + chunk.start * X_b.shape[0]
-            imp_indices.extend(ind_plus_offset)
 
             if return_distance:
                 # We only need to do clipping if we return the distances.
                 distances_chunk = distances_ab.ravel()[ind]
                 # Clip only the indexed (unique) distances
                 np.maximum(distances_chunk, 0, out=distances_chunk)
-                imp_distances.extend(distances_chunk)
-
-    imp_indices = np.asarray(imp_indices)
+                impostors.extend(zip(ind_plus_offset, distances_chunk))
+            else:
+                impostors.extend(ind_plus_offset)
 
     if return_distance:
-        return imp_indices, np.asarray(imp_distances)
+        if len(impostors.reservoir) > 0:
+            imp_indices, imp_distances = zip(*impostors.reservoir)
+            return np.asarray(imp_indices), np.asarray(imp_distances)
+        else:
+            return np.asarray([]), np.asarray([])
     else:
-        return imp_indices
+        return np.asarray(impostors.reservoir)
 
 
 def _compute_push_loss(X, target_neighbors, dist_tn, impostors_graph):
@@ -1195,7 +1195,7 @@ def _check_scalar(x, name, target_type, min_val=None, max_val=None):
 
 def make_lmnn_pipeline(
         n_neighbors=3, n_components=None, init='pca', warm_start=False,
-        max_impostors=500000, neighbors_params=None, weight_push_loss=0.5,
+        max_impostors=500000, weight_push_loss=0.5,
         impostor_store='auto', max_iter=50, tol=1e-5, callback=None,
         store_opt_result=False, verbose=0, random_state=None, n_jobs=1,
         n_neighbors_predict=None, weights='uniform', algorithm='auto',
@@ -1288,7 +1288,7 @@ def make_lmnn_pipeline(
     lmnn = LargeMarginNearestNeighbor(
         n_neighbors=n_neighbors, n_components=n_components, init=init,
         warm_start=warm_start, max_impostors=max_impostors,
-        neighbors_params=neighbors_params, weight_push_loss=weight_push_loss,
+        weight_push_loss=weight_push_loss,
         impostor_store=impostor_store, max_iter=max_iter, tol=tol,
         callback=callback, store_opt_result=store_opt_result, verbose=verbose,
         random_state=random_state, n_jobs=n_jobs)
