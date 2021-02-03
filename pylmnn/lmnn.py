@@ -33,7 +33,7 @@ except ImportError:
     except ImportError:
         raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
 
-from .utils import _euclidean_distances_without_checks
+from .utils import _euclidean_distances_without_checks, ReservoirSample
 
 
 class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
@@ -810,14 +810,10 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                 # in memory
                 imp_ind = _find_impostors_blockwise(
                     X_embedded[ind_out], X_embedded[ind_in],
-                    margin_radii[ind_out], margin_radii[ind_in])
+                    margin_radii[ind_out], margin_radii[ind_in],
+                    self.max_impostors, self.random_state_)
 
                 if len(imp_ind):
-                    # sample impostors if they are too many
-                    if len(imp_ind) > self.max_impostors:
-                        imp_ind = self.random_state_.choice(
-                            imp_ind, self.max_impostors, replace=False)
-
                     dims = (len(ind_out), len(ind_in))
                     ii, jj = np.unravel_index(imp_ind, shape=dims)
                     # Convert indices to refer to the original data matrix
@@ -854,16 +850,10 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                 imp_ind, dist_batch = _find_impostors_blockwise(
                     X_embedded[ind_out], X_embedded[ind_in],
                     margin_radii[ind_out], margin_radii[ind_in],
+                    self.max_impostors, self.random_state_,
                     return_distance=True)
 
                 if len(imp_ind):
-                    # sample impostors if they are too many
-                    if len(imp_ind) > self.max_impostors:
-                        ind_sampled = self.random_state_.choice(
-                            len(imp_ind), self.max_impostors, replace=False)
-                        imp_ind = imp_ind[ind_sampled]
-                        dist_batch = dist_batch[ind_sampled]
-
                     dims = (len(ind_out), len(ind_in))
                     ii, jj = np.unravel_index(imp_ind, shape=dims)
                     # Convert indices to refer to the original data matrix
@@ -939,8 +929,9 @@ def _select_target_neighbors(X, y, n_neighbors, classes=None, **nn_kwargs):
     return target_neighbors
 
 
-def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b,
-                              return_distance=False, block_size=8):
+def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
+                              random_state, return_distance=False,
+                              block_size=8):
     """Find (sample, impostor) pairs in blocks to avoid large memory usage.
 
     Parameters
@@ -957,9 +948,15 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b,
     radii_b : array, shape (n_samples_b,)
         Squared distances of the samples in ``X_b`` to their margins.
 
+    max_impostors: int
+        Maximum number of impostors to return. Returned impostors are sampled.
+
     block_size : int, optional (default=8)
         The maximum number of mebibytes (MiB) of memory to use at a time for
         calculating paired squared distances.
+
+    random_state : numpy.RandomState
+        A pseudo random number generator object
 
     return_distance : bool, optional (default=False)
         Whether to return the squared distances to the impostors.
@@ -981,7 +978,7 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b,
     bytes_per_row = X_b.shape[0] * X_b.itemsize
     block_n_rows = int(block_size*1024*1024 // bytes_per_row)
 
-    imp_indices, imp_distances = [], []
+    impostors = ReservoirSample(max_impostors, random_state=random_state)
 
     # X_b squared norm stays constant, so pre-compute it to get a speed-up
     X_b_norm_squared = row_norms(X_b, squared=True)[np.newaxis, :]
@@ -999,21 +996,24 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b,
 
         if len(ind):
             ind_plus_offset = ind + chunk.start * X_b.shape[0]
-            imp_indices.extend(ind_plus_offset)
 
             if return_distance:
                 # We only need to do clipping if we return the distances.
                 distances_chunk = distances_ab.ravel()[ind]
                 # Clip only the indexed (unique) distances
                 np.maximum(distances_chunk, 0, out=distances_chunk)
-                imp_distances.extend(distances_chunk)
-
-    imp_indices = np.asarray(imp_indices)
+                impostors.extend(zip(ind_plus_offset, distances_chunk))
+            else:
+                impostors.extend(ind_plus_offset)
 
     if return_distance:
-        return imp_indices, np.asarray(imp_distances)
+        if len(impostors.current_sample()) > 0:
+            ind, dist = zip(*impostors.current_sample())
+            return np.asarray(ind), np.asarray(dist)
+        else:
+            return np.asarray([]), np.asarray([])
     else:
-        return imp_indices
+        return impostors.current_sample()
 
 
 def _compute_push_loss(X, target_neighbors, dist_tn, impostors_graph):
