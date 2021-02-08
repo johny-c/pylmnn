@@ -33,7 +33,7 @@ except ImportError:
     except ImportError:
         raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
 
-from .utils import _euclidean_distances_without_checks, ReservoirSample
+from .utils import _euclidean_distances_without_checks, ReservoirSampler
 
 
 class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
@@ -100,6 +100,21 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
             computed twice (once to determine the impostors and once to be
             stored), but this option tends to be faster than 'list' as the
             size of the data set increases.
+
+        auto :
+            Will attempt to decide the most appropriate choice of data
+            structure based on the values passed to :meth:`fit`.
+
+    impostor_sampler : str ['auto'|'uniform'|'reservoir'], optional
+        uniform:
+            All impostors will be generated and sampled down to max_impostors
+            uniformly.
+
+        reservoir :
+            Impostors will be sampled using reservoir sampling up to
+            max_impostors. This avoids O(n_samples^2) memory usage in the worst
+            case while generating impostors in a blockwise fashion, but is
+            slower than sampling after all impostors are generated.
 
         auto :
             Will attempt to decide the most appropriate choice of data
@@ -221,8 +236,9 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
     def __init__(self, n_neighbors=3, n_components=None, init='pca',
                  warm_start=False, max_impostors=500000, neighbors_params=None,
-                 weight_push_loss=0.5, impostor_store='auto', max_iter=50,
-                 tol=1e-5, callback=None, store_opt_result=False, verbose=0,
+                 weight_push_loss=0.5, impostor_store='auto',
+                 impostor_sampler='auto', max_iter=50, tol=1e-5, callback=None,
+                 store_opt_result=False, verbose=0,
                  random_state=None, n_jobs=1):
 
         # Parameters
@@ -234,6 +250,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         self.neighbors_params = neighbors_params
         self.weight_push_loss = weight_push_loss
         self.impostor_store = impostor_store
+        self.impostor_sampler = impostor_sampler
         self.max_iter = max_iter
         self.tol = tol
         self.callback = callback
@@ -291,9 +308,19 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
             use_sparse = True
         elif self.impostor_store == 'list':
             use_sparse = False
+        elif self.impostor_store == 'reservoir':
+            use_sparse = True
         else:
             # auto: Use a heuristic based on the data set size
             use_sparse = X_valid.shape[0] > 6500
+
+        if self.impostor_sampler == 'reservoir':
+            use_reservoir = True
+        elif self.impostor_sampler == 'uniform':
+            use_reservoir = False
+        else:
+            # auto: Use a heuristic based on the data set size
+            use_reservoir = X_valid.shape[0] > 6500
 
         # Create a dictionary of parameters to be passed to the optimizer
         disp = self.verbose - 2 if self.verbose > 1 else -1
@@ -302,7 +329,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                             'jac': True,
                             'args': (X_valid, y_valid, classes,
                                      target_neighbors, grad_static,
-                                     use_sparse),
+                                     use_sparse, use_reservoir),
                             'x0': transformation,
                             'tol': self.tol,
                             'options': dict(maxiter=self.max_iter, disp=disp),
@@ -468,12 +495,17 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         _check_scalar(self.max_impostors, 'max_impostors', integer_types, 1)
         _check_scalar(self.impostor_store, 'impostor_store', string_types)
+        _check_scalar(self.impostor_sampler, 'impostor_sampler', string_types)
         _check_scalar(self.n_jobs, 'n_jobs', integer_types)
         _check_scalar(self.verbose, 'verbose', integer_types, 0)
 
         if self.impostor_store not in ['auto', 'sparse', 'list']:
             raise ValueError("`impostor_store` must be 'auto', 'sparse' or "
                              "'list'.")
+
+        if self.impostor_sampler not in ['auto', 'reservoir', 'uniform']:
+            raise ValueError("`impostor_sampler` must be 'auto', 'reservoir' "
+                             "or 'uniform'.")
 
         if self.callback is not None:
             if not callable(self.callback):
@@ -676,7 +708,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         self.n_iter_ += 1
 
     def _loss_grad_lbfgs(self, transformation, X, y, classes, target_neighbors,
-                         grad_static, use_sparse):
+                         grad_static, use_sparse, use_reservoir):
         """Compute the loss and the loss gradient w.r.t. ``transformation``.
 
         Parameters
@@ -702,6 +734,10 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         use_sparse : bool
             Whether to use a sparse matrix to store the impostors.
+
+        use_reservoir : bool, optional (default=False)
+            Whether to reservoir sampling instead of sampling after generating
+            a list of impostor indicies down to self.max_impostors
 
         Returns
         -------
@@ -744,7 +780,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         # Find the impostors and compute (squared) distances to them
         impostors_graph = self._find_impostors(
-            X_embedded, y, classes, dist_tn[:, -1], use_sparse)
+            X_embedded, y, classes, dist_tn[:, -1], use_sparse, use_reservoir)
 
         # Compute the push loss and its gradient
         loss, grad_new, n_active_triplets = \
@@ -768,7 +804,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         return loss, grad.ravel()
 
     def _find_impostors(self, X_embedded, y, classes, margin_radii,
-                        use_sparse=True):
+                        use_sparse=True, use_reservoir=False):
         """Compute the (sample, impostor) pairs exactly.
 
         Parameters
@@ -789,6 +825,10 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         use_sparse : bool, optional (default=True)
             Whether to use a sparse matrix to store the (sample, impostor)
             pairs.
+
+        use_reservoir : bool, optional (default=False)
+            Whether to reservoir sampling instead of sampling after generating
+            a list of impostor indicies down to self.max_impostors
 
         Returns
         -------
@@ -811,7 +851,8 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                 imp_ind = _find_impostors_blockwise(
                     X_embedded[ind_out], X_embedded[ind_in],
                     margin_radii[ind_out], margin_radii[ind_in],
-                    self.max_impostors, self.random_state_)
+                    self.max_impostors, self.random_state_,
+                    use_reservoir=use_reservoir)
 
                 if len(imp_ind):
                     dims = (len(ind_out), len(ind_in))
@@ -851,7 +892,8 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                     X_embedded[ind_out], X_embedded[ind_in],
                     margin_radii[ind_out], margin_radii[ind_in],
                     self.max_impostors, self.random_state_,
-                    return_distance=True)
+                    return_distance=True,
+                    use_reservoir=use_reservoir)
 
                 if len(imp_ind):
                     dims = (len(ind_out), len(ind_in))
@@ -931,7 +973,7 @@ def _select_target_neighbors(X, y, n_neighbors, classes=None, **nn_kwargs):
 
 def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
                               random_state, return_distance=False,
-                              block_size=8):
+                              block_size=8, use_reservoir=False):
     """Find (sample, impostor) pairs in blocks to avoid large memory usage.
 
     Parameters
@@ -961,6 +1003,10 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
     return_distance : bool, optional (default=False)
         Whether to return the squared distances to the impostors.
 
+    use_reservoir : bool, optional (default=False)
+        Whether to reservoir sampling instead of sampling after generating
+        a list of impostor indicies down to max_impostors
+
     Returns
     -------
     imp_indices : array, shape (n_impostors,)
@@ -978,7 +1024,10 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
     bytes_per_row = X_b.shape[0] * X_b.itemsize
     block_n_rows = int(block_size*1024*1024 // bytes_per_row)
 
-    impostors = ReservoirSample(max_impostors, random_state=random_state)
+    if use_reservoir:
+        impostors = ReservoirSampler(max_impostors, random_state=random_state)
+    else:
+        imp_indices, imp_distances = [], []
 
     # X_b squared norm stays constant, so pre-compute it to get a speed-up
     X_b_norm_squared = row_norms(X_b, squared=True)[np.newaxis, :]
@@ -1002,18 +1051,42 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
                 distances_chunk = distances_ab.ravel()[ind]
                 # Clip only the indexed (unique) distances
                 np.maximum(distances_chunk, 0, out=distances_chunk)
-                impostors.extend(zip(ind_plus_offset, distances_chunk))
+
+                if use_reservoir:
+                    impostors.extend(zip(ind_plus_offset, distances_chunk))
+                else:
+                    imp_indices.extend(ind_plus_offset)
+                    imp_distances.extend(distances_chunk)
             else:
-                impostors.extend(ind_plus_offset)
+                if use_reservoir:
+                    impostors.extend(ind_plus_offset)
+                else:
+                    imp_indices.extend(ind_plus_offset)
 
     if return_distance:
-        if len(impostors.current_sample()) > 0:
-            ind, dist = zip(*impostors.current_sample())
-            return np.asarray(ind), np.asarray(dist)
+        if use_reservoir:
+            if len(impostors.current_sample()) > 0:
+                ind, dist = zip(*impostors.current_sample())
+                return np.asarray(ind), np.asarray(dist)
+            else:
+                return np.asarray([]), np.asarray([])
         else:
-            return np.asarray([]), np.asarray([])
+            if len(imp_indices) > max_impostors:
+                ind_sampled = random_state.choice(
+                        len(imp_indices), max_impostors, replace=False)
+                return np.asarray(imp_indices)[ind_sampled], np.asarray(imp_distances)[ind_sampled]
+            else:
+                return np.asarray(imp_indices), np.asarray(imp_distances)
     else:
-        return impostors.current_sample()
+        if use_reservoir:
+            return impostors.current_sample()
+        else:
+            if len(imp_indices) > max_impostors:
+                return random_state.choice(
+                    imp_indices, max_impostors, replace=False)
+            else:
+                return imp_indices
+
 
 
 def _compute_push_loss(X, target_neighbors, dist_tn, impostors_graph):

@@ -1,5 +1,6 @@
 import sys
 import time
+from itertools import combinations
 import numpy as np
 
 try:
@@ -40,7 +41,7 @@ except ImportError:
 from pylmnn import LargeMarginNearestNeighbor
 from pylmnn import make_lmnn_pipeline
 from pylmnn.lmnn import _paired_distances_blockwise
-from pylmnn.utils import _euclidean_distances_without_checks, ReservoirSample
+from pylmnn.utils import _euclidean_distances_without_checks, ReservoirSampler
 
 rng = np.random.RandomState(0)
 # load and shuffle iris dataset
@@ -120,6 +121,7 @@ def test_params_validation():
     assert_raises(TypeError, LMNN(n_jobs='yes').fit, X, y)
     assert_raises(TypeError, LMNN(warm_start=1).fit, X, y)
     assert_raises(TypeError, LMNN(impostor_store=0.5).fit, X, y)
+    assert_raises(TypeError, LMNN(impostor_sampler=0.5).fit, X, y)
     assert_raises(TypeError, LMNN(neighbors_params=65).fit, X, y)
     assert_raises(TypeError, LMNN(weight_push_loss='0.3').fit, X, y)
 
@@ -145,9 +147,13 @@ def test_params_validation():
                          '`max_impostors`= -1, must be >= 1.',
                          LMNN(max_impostors=-1).fit, X, y)
     assert_raise_message(ValueError,
-                         "`impostor_store` must be 'auto', 'sparse' "
-                         "or 'list'.",
+                         "`impostor_store` must be 'auto', 'sparse' or "
+                         "'list'.",
                          LMNN(impostor_store='dense').fit, X, y)
+    assert_raise_message(ValueError,
+                         "`impostor_sampler` must be 'auto', 'reservoir' or "
+                         "'uniform'.",
+                         LMNN(impostor_sampler='random').fit, X, y)
 
     assert_raise_message(ValueError,
                          '`weight_push_loss`= 2.0, must be <= 1.0.',
@@ -351,6 +357,10 @@ def test_max_impostors():
                                       impostor_store='sparse')
     lmnn.fit(iris_data, iris_target)
 
+    lmnn = LargeMarginNearestNeighbor(n_neighbors=3, max_impostors=1,
+                                      impostor_sampler='reservoir')
+    lmnn.fit(iris_data, iris_target)
+
 
 def test_neighbors_params():
     from scipy.spatial.distance import hamming
@@ -383,6 +393,26 @@ def test_impostor_store():
                               err_msg='Toggling `impostor_store` results in '
                                       'a different solution.')
 
+def test_impostor_sampling_iris():
+    # Compares performance on iris dataset for different impostor_store choices
+
+    samplers = ['uniform', 'reservoir']
+
+    for impostor_sampler in samplers:
+        X_train, X_test, y_train, y_test =train_test_split(iris_data, iris_target)
+
+        lmnn = LargeMarginNearestNeighbor(
+                impostor_sampler=impostor_sampler,
+                max_impostors=5)
+
+        lmnn.fit(X_train, y_train)
+        knn = KNeighborsClassifier(n_neighbors=lmnn.n_neighbors_)
+        LX_train = lmnn.transform(X_train)
+        knn.fit(LX_train, y_train)
+
+        LX_test = lmnn.transform(X_test)
+
+        assert (knn.score(LX_test, y_test) > 0.84)
 
 def test_callback():
     lmnn = LargeMarginNearestNeighbor(n_neighbors=3, callback='my_cb')
@@ -592,7 +622,7 @@ def test_reservoir_sample():
         # this will help to illustrate sampling bias
         X = np.sort(rng.randn(n_samples))
 
-        sampler = ReservoirSample(n_sample, rng)
+        sampler = ReservoirSampler(n_sample, rng)
         for chunk in gen_batches(n_samples, block_n_rows):
             sampler.extend(X[chunk])
 

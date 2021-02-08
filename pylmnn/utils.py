@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.utils.extmath import row_norms, safe_sparse_dot
 
-class ReservoirSample:
+class ReservoirSampler:
     """Uniform sample of fixed size from a stream of values.
 
     Parameters
@@ -65,8 +65,8 @@ class ReservoirSample:
             if self._rand_ind >= self._sample_size:
                 # refill random numbers in batches to minimize overhead
                 # also pre-compute some of the arithmetic to minimize overhead
-                # doing this takes ReservoirSample from taking about 5x as long
-                # as numpy.RandomState.choice to ~2.5x as long
+                # doing this takes ReservoirSampler from taking about 5x as
+                # long as numpy.RandomState.choice to ~2.5x as long
                 self._rand_replacement = self._random_state.randint(
                         0, self._sample_size, self._sample_size)
                 self._rand_w_multiplier = np.exp(
