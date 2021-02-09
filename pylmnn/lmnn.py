@@ -33,8 +33,11 @@ except ImportError:
     except ImportError:
         raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
 
-from .utils import _euclidean_distances_without_checks, ReservoirSampler
-
+from .utils import (
+        _euclidean_distances_without_checks,
+        ReservoirSampler,
+        UniformSampler,
+)
 
 class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
     """Distance metric learning for large margin classification.
@@ -308,8 +311,6 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
             use_sparse = True
         elif self.impostor_store == 'list':
             use_sparse = False
-        elif self.impostor_store == 'reservoir':
-            use_sparse = True
         else:
             # auto: Use a heuristic based on the data set size
             use_sparse = X_valid.shape[0] > 6500
@@ -1027,7 +1028,7 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
     if use_reservoir:
         impostors = ReservoirSampler(max_impostors, random_state=random_state)
     else:
-        imp_indices, imp_distances = [], []
+        impostors = UniformSampler(max_impostors, random_state=random_state)
 
     # X_b squared norm stays constant, so pre-compute it to get a speed-up
     X_b_norm_squared = row_norms(X_b, squared=True)[np.newaxis, :]
@@ -1052,41 +1053,19 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
                 # Clip only the indexed (unique) distances
                 np.maximum(distances_chunk, 0, out=distances_chunk)
 
-                if use_reservoir:
-                    impostors.extend(zip(ind_plus_offset, distances_chunk))
-                else:
-                    imp_indices.extend(ind_plus_offset)
-                    imp_distances.extend(distances_chunk)
+                impostors.extend(zip(ind_plus_offset, distances_chunk))
             else:
-                if use_reservoir:
-                    impostors.extend(ind_plus_offset)
-                else:
-                    imp_indices.extend(ind_plus_offset)
+                impostors.extend(ind_plus_offset)
 
+    sample = impostors.current_sample()
     if return_distance:
-        if use_reservoir:
-            if len(impostors.current_sample()) > 0:
-                ind, dist = zip(*impostors.current_sample())
-                return np.asarray(ind), np.asarray(dist)
-            else:
-                return np.asarray([]), np.asarray([])
+        if len(sample) > 0:
+             ind, dist = zip(*sample)
+             return np.asarray(ind, dtype=int), np.asarray(dist, dtype=float)
         else:
-            if len(imp_indices) > max_impostors:
-                ind_sampled = random_state.choice(
-                        len(imp_indices), max_impostors, replace=False)
-                return np.asarray(imp_indices)[ind_sampled], np.asarray(imp_distances)[ind_sampled]
-            else:
-                return np.asarray(imp_indices), np.asarray(imp_distances)
+             return np.asarray([], dtype=int), np.asarray([], dtype=float)
     else:
-        if use_reservoir:
-            return impostors.current_sample()
-        else:
-            if len(imp_indices) > max_impostors:
-                return random_state.choice(
-                    imp_indices, max_impostors, replace=False)
-            else:
-                return imp_indices
-
+        return np.asarray(sample, dtype=int)
 
 
 def _compute_push_loss(X, target_neighbors, dist_tn, impostors_graph):

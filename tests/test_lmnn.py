@@ -41,7 +41,11 @@ except ImportError:
 from pylmnn import LargeMarginNearestNeighbor
 from pylmnn import make_lmnn_pipeline
 from pylmnn.lmnn import _paired_distances_blockwise
-from pylmnn.utils import _euclidean_distances_without_checks, ReservoirSampler
+from pylmnn.utils import (
+        _euclidean_distances_without_checks,
+        ReservoirSampler,
+        UniformSampler,
+)
 
 rng = np.random.RandomState(0)
 # load and shuffle iris dataset
@@ -611,7 +615,7 @@ def test_reservoir_sample():
     n_samples = 10000
     block_n_rows = 880
     n_sample = 100
-    n_tries = 200
+    n_tries = 300
 
     large_sample_means = []
     reservoir_means = []
@@ -630,13 +634,45 @@ def test_reservoir_sample():
         reservoir_means.append(np.mean(sampler.current_sample()))
         choice_means.append(np.mean(rng.choice(X, n_sample, replace=False)))
 
-    #means should all be about the same
+    # means should all be about the same
     assert_almost_equal(np.mean(large_sample_means), np.mean(choice_means), decimal=2)
     assert_almost_equal(np.mean(large_sample_means), np.mean(reservoir_means), decimal=2)
     assert_almost_equal(np.mean(choice_means), np.mean(reservoir_means), decimal=2)
 
     # stdev of choice and reservoir should be about the same
     assert_almost_equal(np.std(choice_means), np.std(reservoir_means), decimal=2)
+
+def test_uniform_sample():
+    n_samples = 10000
+    block_n_rows = 880
+    n_sample = 100
+    n_tries = 300
+
+    large_sample_means = []
+    uniform_means = []
+    choice_means = []
+
+    for i in range(n_tries):
+        # sort X so it's elements are not uniformly distributed w.r.t. position
+        # this will help to illustrate sampling bias
+        X = np.sort(rng.randn(n_samples))
+
+        sampler = UniformSampler(n_sample, rng)
+        for chunk in gen_batches(n_samples, block_n_rows):
+            sampler.extend(X[chunk])
+
+        large_sample_means.append(np.mean(X))
+        uniform_means.append(np.mean(sampler.current_sample()))
+        choice_means.append(np.mean(rng.choice(X, n_sample, replace=False)))
+
+    # means should all be about the same
+    assert_almost_equal(np.mean(large_sample_means), np.mean(choice_means), decimal=2)
+    assert_almost_equal(np.mean(large_sample_means), np.mean(uniform_means), decimal=2)
+    assert_almost_equal(np.mean(choice_means), np.mean(uniform_means), decimal=2)
+
+    # stdev of choice and uniform should be about the same
+    assert_almost_equal(np.std(choice_means), np.std(uniform_means), decimal=2)
+
 
 def test_pipeline_equivalency():
     X = iris_data

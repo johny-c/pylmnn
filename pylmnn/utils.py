@@ -1,8 +1,54 @@
 import numpy as np
 from sklearn.utils.extmath import row_norms, safe_sparse_dot
 
+class UniformSampler:
+    """Post-hoc uniform sample of fixed size from a stream of stream of values.
+
+    Parameters
+    ----------
+    sample_size: int
+        Number of elements to take as the sample.
+
+    random_state : numpy.RandomState
+        A pseudo random number generator object
+    """
+
+    def __init__(self, sample_size, random_state):
+        self._random_state = random_state
+        self._sample_size = sample_size
+
+        self._values = []
+
+    def extend(self, latest_values):
+        """Adds elements to be sampled from.
+
+        Parameters
+        ----------
+        latest_values : array-like shape (n_samples)
+            The latest part of the stream to sample from.
+
+        """
+        self._values.extend(latest_values)
+
+    def current_sample(self):
+        """Gets the current reservoir sample.
+
+        Returns
+        -------
+        sample : array shape (sample_size)
+            The current sample from the stream
+
+        """
+
+        if len(self._values) > self._sample_size:
+            ind = self._random_state.choice(len(self._values), self._sample_size)
+            return np.asarray(self._values, dtype=object)[ind]
+        else:
+            return self._values
+
+
 class ReservoirSampler:
-    """Uniform sample of fixed size from a stream of values.
+    """Pseudo-uniform sample of fixed size from a stream of values.
 
     Parameters
     ----------
