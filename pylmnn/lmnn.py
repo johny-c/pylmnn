@@ -109,7 +109,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
             structure based on the values passed to :meth:`fit`.
 
     impostor_sampler : str ['auto'|'uniform'|'reservoir'], optional
-        uniform:
+        uniform :
             All impostors will be generated and sampled down to max_impostors
             uniformly.
 
@@ -120,8 +120,8 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
             slower than sampling after all impostors are generated.
 
         auto :
-            Will attempt to decide the most appropriate choice of data
-            structure based on the values passed to :meth:`fit`.
+            Will attempt to decide the most appropriate choice of sampling
+            algorithm based on the values passed to :meth:`fit`.
 
     max_iter : int, optional (default=50)
         Maximum number of iterations in the optimization.
@@ -738,7 +738,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         use_reservoir : bool, optional (default=False)
             Whether to reservoir sampling instead of sampling after generating
-            a list of impostor indicies down to self.max_impostors
+            a list of impostor indicies down to ``self.max_impostors``.
 
         Returns
         -------
@@ -829,7 +829,7 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
 
         use_reservoir : bool, optional (default=False)
             Whether to reservoir sampling instead of sampling after generating
-            a list of impostor indicies down to self.max_impostors
+            a list of impostor indicies down to ``self.max_impostors``.
 
         Returns
         -------
@@ -999,14 +999,14 @@ def _find_impostors_blockwise(X_a, X_b, radii_a, radii_b, max_impostors,
         calculating paired squared distances.
 
     random_state : numpy.RandomState
-        A pseudo random number generator object
+        A pseudo random number generator object used for sampling.
 
     return_distance : bool, optional (default=False)
         Whether to return the squared distances to the impostors.
 
     use_reservoir : bool, optional (default=False)
         Whether to reservoir sampling instead of sampling after generating
-        a list of impostor indicies down to max_impostors
+        a list of impostor indicies down to ``max_impostors``.
 
     Returns
     -------

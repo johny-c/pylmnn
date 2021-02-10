@@ -2,7 +2,7 @@ import numpy as np
 from sklearn.utils.extmath import row_norms, safe_sparse_dot
 
 class UniformSampler:
-    """Post-hoc uniform sample of fixed size from a stream of stream of values.
+    """Post-hoc uniform sample of fixed size from a stream values.
 
     Parameters
     ----------
@@ -10,7 +10,7 @@ class UniformSampler:
         Number of elements to take as the sample.
 
     random_state : numpy.RandomState
-        A pseudo random number generator object
+        A pseudo random number generator object used for sampling.
     """
 
     def __init__(self, sample_size, random_state):
@@ -48,7 +48,7 @@ class UniformSampler:
 
 
 class ReservoirSampler:
-    """Pseudo-uniform sample of fixed size from a stream of values.
+    """Pseudo-uniform on-line sample of fixed size from a stream of values.
 
     Parameters
     ----------
@@ -56,7 +56,7 @@ class ReservoirSampler:
         Number of elements to take as the sample.
 
     random_state : numpy.RandomState
-        A pseudo random number generator object
+        A pseudo random number generator object used for sampling.
 
     References
     ----------
