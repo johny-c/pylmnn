@@ -33,11 +33,8 @@ except ImportError:
     except ImportError:
         raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
 
-from .utils import (
-        _euclidean_distances_without_checks,
-        ReservoirSampler,
-        UniformSampler,
-)
+from .utils import _euclidean_distances_without_checks
+from .impostor_sampling import ReservoirSampler, UniformSampler
 
 class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
     """Distance metric learning for large margin classification.

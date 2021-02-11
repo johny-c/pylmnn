@@ -41,11 +41,8 @@ except ImportError:
 from pylmnn import LargeMarginNearestNeighbor
 from pylmnn import make_lmnn_pipeline
 from pylmnn.lmnn import _paired_distances_blockwise
-from pylmnn.utils import (
-        _euclidean_distances_without_checks,
-        ReservoirSampler,
-        UniformSampler,
-)
+from pylmnn.utils import _euclidean_distances_without_checks
+from pylmnn.impostor_sampling import ReservoirSampler, UniformSampler
 
 rng = np.random.RandomState(0)
 # load and shuffle iris dataset
