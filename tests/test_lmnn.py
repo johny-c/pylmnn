@@ -150,7 +150,7 @@ def test_params_validation():
                          "'list'.",
                          LMNN(impostor_store='dense').fit, X, y)
     assert_raise_message(ValueError,
-                         "`impostor_sampler` must be 'auto', 'reservoir' or "
+                         "`impostor_sampler` must be 'reservoir' or "
                          "'uniform'.",
                          LMNN(impostor_sampler='random').fit, X, y)
 
@@ -628,7 +628,7 @@ def test_reservoir_sample():
             sampler.extend(X[chunk])
 
         large_sample_means.append(np.mean(X))
-        reservoir_means.append(np.mean(sampler.get()))
+        reservoir_means.append(np.mean(sampler.sample()))
         choice_means.append(np.mean(rng.choice(X, subsample_size, replace=False)))
 
     # means should all be about the same
@@ -660,7 +660,7 @@ def test_uniform_sample():
             sampler.extend(X[chunk])
 
         large_sample_means.append(np.mean(X))
-        uniform_means.append(np.mean(sampler.get()))
+        uniform_means.append(np.mean(sampler.sample()))
         choice_means.append(np.mean(rng.choice(X, subsample_size, replace=False)))
 
     # means should all be about the same
