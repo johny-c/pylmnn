@@ -1,6 +1,4 @@
 import sys
-import time
-from itertools import combinations
 import numpy as np
 
 try:
@@ -394,17 +392,17 @@ def test_impostor_store():
                               err_msg='Toggling `impostor_store` results in '
                                       'a different solution.')
 
+
 def test_impostor_sampling_iris():
     # Compares performance on iris dataset for different impostor_store choices
 
     samplers = ['uniform', 'reservoir']
 
     for impostor_sampler in samplers:
-        X_train, X_test, y_train, y_test =train_test_split(iris_data, iris_target)
+        X_train, X_test, y_train, y_test = train_test_split(iris_data, iris_target)
 
-        lmnn = LargeMarginNearestNeighbor(
-                impostor_sampler=impostor_sampler,
-                max_impostors=5)
+        lmnn = LargeMarginNearestNeighbor(impostor_sampler=impostor_sampler,
+                                          max_impostors=5)
 
         lmnn.fit(X_train, y_train)
         knn = KNeighborsClassifier(n_neighbors=lmnn.n_neighbors_)
@@ -414,6 +412,7 @@ def test_impostor_sampling_iris():
         LX_test = lmnn.transform(X_test)
 
         assert (knn.score(LX_test, y_test) > 0.84)
+
 
 def test_callback():
     lmnn = LargeMarginNearestNeighbor(n_neighbors=3, callback='my_cb')
@@ -608,10 +607,11 @@ def test_euclidean_distances_without_checks():
 
     assert_array_equal(distances1, distances2)
 
+
 def test_reservoir_sample():
     n_samples = 10000
     block_n_rows = 880
-    n_sample = 100
+    subsample_size = 100
     n_tries = 300
 
     large_sample_means = []
@@ -623,13 +623,13 @@ def test_reservoir_sample():
         # this will help to illustrate sampling bias
         X = np.sort(rng.randn(n_samples))
 
-        sampler = ReservoirSampler(n_sample, rng)
+        sampler = ReservoirSampler(subsample_size, rng)
         for chunk in gen_batches(n_samples, block_n_rows):
             sampler.extend(X[chunk])
 
         large_sample_means.append(np.mean(X))
-        reservoir_means.append(np.mean(sampler.current_sample()))
-        choice_means.append(np.mean(rng.choice(X, n_sample, replace=False)))
+        reservoir_means.append(np.mean(sampler.get()))
+        choice_means.append(np.mean(rng.choice(X, subsample_size, replace=False)))
 
     # means should all be about the same
     assert_almost_equal(np.mean(large_sample_means), np.mean(choice_means), decimal=2)
@@ -639,10 +639,11 @@ def test_reservoir_sample():
     # stdev of choice and reservoir should be about the same
     assert_almost_equal(np.std(choice_means), np.std(reservoir_means), decimal=2)
 
+
 def test_uniform_sample():
     n_samples = 10000
     block_n_rows = 880
-    n_sample = 100
+    subsample_size = 100
     n_tries = 300
 
     large_sample_means = []
@@ -654,13 +655,13 @@ def test_uniform_sample():
         # this will help to illustrate sampling bias
         X = np.sort(rng.randn(n_samples))
 
-        sampler = UniformSampler(n_sample, rng)
+        sampler = UniformSampler(subsample_size, rng)
         for chunk in gen_batches(n_samples, block_n_rows):
             sampler.extend(X[chunk])
 
         large_sample_means.append(np.mean(X))
-        uniform_means.append(np.mean(sampler.current_sample()))
-        choice_means.append(np.mean(rng.choice(X, n_sample, replace=False)))
+        uniform_means.append(np.mean(sampler.get()))
+        choice_means.append(np.mean(rng.choice(X, subsample_size, replace=False)))
 
     # means should all be about the same
     assert_almost_equal(np.mean(large_sample_means), np.mean(choice_means), decimal=2)

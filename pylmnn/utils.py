@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.utils.extmath import row_norms, safe_sparse_dot
 
+
 def _euclidean_distances_without_checks(X, Y=None, Y_norm_squared=None,
                                         squared=False, X_norm_squared=None,
                                         clip=True):

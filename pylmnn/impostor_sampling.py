@@ -1,13 +1,24 @@
 """Tools to assist in sampling impostors for PyLMNN. """
-
+from abc import ABC, abstractmethod
 import numpy as np
 
-class UniformSampler:
+
+class Sampler(ABC):
+    @abstractmethod
+    def extend(self, latest_values):
+        pass
+
+    @abstractmethod
+    def sample(self):
+        pass
+
+
+class UniformSampler(Sampler):
     """Post-hoc uniform sample of fixed size from a stream values.
 
     Parameters
     ----------
-    sample_size: int
+    sample_size : int
         Number of elements to take as the sample.
 
     random_state : numpy.RandomState
@@ -15,8 +26,8 @@ class UniformSampler:
     """
 
     def __init__(self, sample_size, random_state):
-        self._random_state = random_state
-        self._sample_size = sample_size
+        self.sample_size = sample_size
+        self.random_state = random_state
 
         self._values = []
 
@@ -25,35 +36,36 @@ class UniformSampler:
 
         Parameters
         ----------
-        latest_values : array-like shape (n_samples)
+        latest_values : array-like, shape (n_samples,)
             The latest part of the stream to sample from.
 
         """
         self._values.extend(latest_values)
 
-    def current_sample(self):
-        """Gets the current reservoir sample.
+    def sample(self):
+        """Gets the current sample.
 
         Returns
         -------
-        sample : array shape (sample_size)
+        sample : array, shape (sample_size,)
             The current sample from the stream
 
         """
-
-        if len(self._values) > self._sample_size:
-            ind = self._random_state.choice(len(self._values), self._sample_size)
+        n = len(self._values)
+        k = self.sample_size
+        if n > k:
+            ind = self.random_state.choice(n, k, replace=False)
             return np.asarray(self._values, dtype=object)[ind]
         else:
             return self._values
 
 
-class ReservoirSampler:
-    """Pseudo-uniform on-line sample of fixed size from a stream of values.
+class ReservoirSampler(Sampler):
+    """Pseudo-uniform online sample of fixed size from a stream of values.
 
     Parameters
     ----------
-    sample_size: int
+    sample_size : int
         Number of elements to take as the sample.
 
     random_state : numpy.RandomState
@@ -68,13 +80,17 @@ class ReservoirSampler:
     """
 
     def __init__(self, sample_size, random_state):
-        self._random_state = random_state
-        self._reservoir = []
-        self._w = np.exp(np.log(random_state.rand())/sample_size)
-        self._sample_size = sample_size
+        self.sample_size = sample_size
+        self.random_state = random_state
+
         self._i = 0
-        self._next_i = int(sample_size +
-                np.log(random_state.random())/np.log(1-self._w) + 1)
+        self._reservoir = []
+
+        u = random_state.random()
+        self._w = np.exp(np.log(u) / sample_size)
+
+        u = random_state.random()
+        self._next_i = int(sample_size + np.log(u) / np.log(1 - self._w) + 1)
 
         # stores randomly generated values for sampling which we do in batches
         # to minimize overhead of getting random numbers
@@ -91,60 +107,58 @@ class ReservoirSampler:
 
         Parameters
         ----------
-        latest_values : array-like shape (n_samples)
+        latest_values : array-like, shape (n_samples,)
             The latest part of the stream to sample from.
 
         """
 
-        latest_values = list(latest_values)
-        remaining_capacity = self._sample_size - self._i
+        offset = self._i
+        k = self.sample_size
+        rng = self.random_state
+
+        latest_values = list(latest_values)  # TODO: This seems unnecessary
+        remaining_capacity = k - offset
 
         # if reservoir not full, copy from latest_values to fill
         if remaining_capacity > 0:
             to_copy = min(remaining_capacity, len(latest_values))
             self._reservoir.extend(latest_values[:to_copy])
 
+        # NOTE: At this point, the reservoir might still be not full
+
         # general case: sample from latest_values
-        offset = self._i
-
-
         while self._next_i - offset < len(latest_values):
-            if self._rand_ind >= self._sample_size:
+            if self._rand_ind >= k:
                 # refill random numbers in batches to minimize overhead
                 # also pre-compute some of the arithmetic to minimize overhead
                 # doing this takes ReservoirSampler from taking about 5x as
                 # long as numpy.RandomState.choice to ~2.5x as long
-                self._rand_replacement = self._random_state.randint(
-                        0, self._sample_size, self._sample_size)
-                self._rand_w_multiplier = np.exp(
-                        np.log(self._random_state.random(self._sample_size))
-                        / self._sample_size)
-                self._rand_next_i_partial = np.log(
-                        self._random_state.random(self._sample_size)
-                )
+                self._rand_replacement = rng.randint(0, k, k)
+                self._rand_w_multiplier = np.exp(np.log(rng.random(k)) / k)
+                self._rand_next_i_partial = np.log(rng.random(k))
                 self._rand_ind = 0
 
-            #replace a random item of the reservoir with item i
+            # replace a random item of the reservoir with item i
             ind_src = self._next_i - offset
             ind_dst = self._rand_replacement[self._rand_ind]
             self._reservoir[ind_dst] = latest_values[ind_src]
 
-            self._w = self._w * self._rand_w_multiplier[self._rand_ind]
-            self._next_i = int(self._next_i + 1 +
-                    self._rand_next_i_partial[self._rand_ind]/np.log(1-self._w))
+            # book-keeping
+            self._w *= self._rand_w_multiplier[self._rand_ind]
+            s = self._rand_next_i_partial[self._rand_ind]
+            self._next_i = int(self._next_i + 1 + s / np.log(1 - self._w))
             self._rand_ind += 1
 
         self._i += len(latest_values)
 
-    def current_sample(self):
+    def sample(self):
         """Gets the current reservoir sample.
 
         Returns
         -------
-        sample : array shape (sample_size)
+        sample : array, shape (sample_size,)
             The current sample from the stream
 
         """
 
         return self._reservoir
-
