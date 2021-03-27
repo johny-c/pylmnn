@@ -1,14 +1,26 @@
 import sys
 import numpy as np
 
-from sklearn.utils.testing import assert_array_equal
-from sklearn.utils.testing import assert_array_almost_equal
-from sklearn.utils.testing import assert_allclose
-from sklearn.utils.testing import assert_raises
-from sklearn.utils.testing import assert_raise_message
-from sklearn.utils.testing import assert_warns_message
+try:
+    from sklearn.utils.testing import assert_array_equal
+    from sklearn.utils.testing import assert_array_almost_equal
+    from sklearn.utils.testing import assert_almost_equal
+    from sklearn.utils.testing import assert_allclose
+    from sklearn.utils.testing import assert_raises
+    from sklearn.utils.testing import assert_raise_message
+    from sklearn.utils.testing import assert_warns_message
+except ImportError:
+    # sklearn moved these testing utils between 0.21 and 0.24
+    from sklearn.utils._testing import assert_array_equal
+    from sklearn.utils._testing import assert_array_almost_equal
+    from sklearn.utils._testing import assert_almost_equal
+    from sklearn.utils._testing import assert_allclose
+    from sklearn.utils._testing import assert_raises
+    from sklearn.utils._testing import assert_raise_message
+    from sklearn.utils._testing import assert_warns_message
 
 from sklearn import datasets
+from sklearn.utils import gen_batches
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics.pairwise import paired_euclidean_distances
 from sklearn.metrics.pairwise import euclidean_distances
@@ -28,6 +40,7 @@ from pylmnn import LargeMarginNearestNeighbor
 from pylmnn import make_lmnn_pipeline
 from pylmnn.lmnn import _paired_distances_blockwise
 from pylmnn.utils import _euclidean_distances_without_checks
+from pylmnn.impostor_sampling import ReservoirSampler, UniformSampler
 
 rng = np.random.RandomState(0)
 # load and shuffle iris dataset
@@ -107,6 +120,7 @@ def test_params_validation():
     assert_raises(TypeError, LMNN(n_jobs='yes').fit, X, y)
     assert_raises(TypeError, LMNN(warm_start=1).fit, X, y)
     assert_raises(TypeError, LMNN(impostor_store=0.5).fit, X, y)
+    assert_raises(TypeError, LMNN(impostor_sampler=0.5).fit, X, y)
     assert_raises(TypeError, LMNN(neighbors_params=65).fit, X, y)
     assert_raises(TypeError, LMNN(weight_push_loss='0.3').fit, X, y)
 
@@ -132,9 +146,13 @@ def test_params_validation():
                          '`max_impostors`= -1, must be >= 1.',
                          LMNN(max_impostors=-1).fit, X, y)
     assert_raise_message(ValueError,
-                         "`impostor_store` must be 'auto', 'sparse' "
-                         "or 'list'.",
+                         "`impostor_store` must be 'auto', 'sparse' or "
+                         "'list'.",
                          LMNN(impostor_store='dense').fit, X, y)
+    assert_raise_message(ValueError,
+                         "`impostor_sampler` must be 'reservoir' or "
+                         "'uniform'.",
+                         LMNN(impostor_sampler='random').fit, X, y)
 
     assert_raise_message(ValueError,
                          '`weight_push_loss`= 2.0, must be <= 1.0.',
@@ -338,6 +356,10 @@ def test_max_impostors():
                                       impostor_store='sparse')
     lmnn.fit(iris_data, iris_target)
 
+    lmnn = LargeMarginNearestNeighbor(n_neighbors=3, max_impostors=1,
+                                      impostor_sampler='reservoir')
+    lmnn.fit(iris_data, iris_target)
+
 
 def test_neighbors_params():
     from scipy.spatial.distance import hamming
@@ -369,6 +391,27 @@ def test_impostor_store():
     assert_array_almost_equal(components_list, components_sparse,
                               err_msg='Toggling `impostor_store` results in '
                                       'a different solution.')
+
+
+def test_impostor_sampling_iris():
+    # Compares performance on iris dataset for different impostor_store choices
+
+    samplers = ['uniform', 'reservoir']
+
+    for impostor_sampler in samplers:
+        X_train, X_test, y_train, y_test = train_test_split(iris_data, iris_target)
+
+        lmnn = LargeMarginNearestNeighbor(impostor_sampler=impostor_sampler,
+                                          max_impostors=5)
+
+        lmnn.fit(X_train, y_train)
+        knn = KNeighborsClassifier(n_neighbors=lmnn.n_neighbors_)
+        LX_train = lmnn.transform(X_train)
+        knn.fit(LX_train, y_train)
+
+        LX_test = lmnn.transform(X_test)
+
+        assert (knn.score(LX_test, y_test) > 0.84)
 
 
 def test_callback():
@@ -563,6 +606,70 @@ def test_euclidean_distances_without_checks():
     distances2 = _euclidean_distances_without_checks(X, X_norm_squared=XX)
 
     assert_array_equal(distances1, distances2)
+
+
+def test_reservoir_sample():
+    n_samples = 10000
+    block_n_rows = 880
+    subsample_size = 100
+    n_tries = 300
+
+    large_sample_means = []
+    reservoir_means = []
+    choice_means = []
+
+    for i in range(n_tries):
+        # sort X so it's elements are not uniformly distributed w.r.t. position
+        # this will help to illustrate sampling bias
+        X = np.sort(rng.randn(n_samples))
+
+        sampler = ReservoirSampler(subsample_size, rng)
+        for chunk in gen_batches(n_samples, block_n_rows):
+            sampler.extend(X[chunk])
+
+        large_sample_means.append(np.mean(X))
+        reservoir_means.append(np.mean(sampler.sample()))
+        choice_means.append(np.mean(rng.choice(X, subsample_size, replace=False)))
+
+    # means should all be about the same
+    assert_almost_equal(np.mean(large_sample_means), np.mean(choice_means), decimal=2)
+    assert_almost_equal(np.mean(large_sample_means), np.mean(reservoir_means), decimal=2)
+    assert_almost_equal(np.mean(choice_means), np.mean(reservoir_means), decimal=2)
+
+    # stdev of choice and reservoir should be about the same
+    assert_almost_equal(np.std(choice_means), np.std(reservoir_means), decimal=2)
+
+
+def test_uniform_sample():
+    n_samples = 10000
+    block_n_rows = 880
+    subsample_size = 100
+    n_tries = 300
+
+    large_sample_means = []
+    uniform_means = []
+    choice_means = []
+
+    for i in range(n_tries):
+        # sort X so it's elements are not uniformly distributed w.r.t. position
+        # this will help to illustrate sampling bias
+        X = np.sort(rng.randn(n_samples))
+
+        sampler = UniformSampler(subsample_size, rng)
+        for chunk in gen_batches(n_samples, block_n_rows):
+            sampler.extend(X[chunk])
+
+        large_sample_means.append(np.mean(X))
+        uniform_means.append(np.mean(sampler.sample()))
+        choice_means.append(np.mean(rng.choice(X, subsample_size, replace=False)))
+
+    # means should all be about the same
+    assert_almost_equal(np.mean(large_sample_means), np.mean(choice_means), decimal=2)
+    assert_almost_equal(np.mean(large_sample_means), np.mean(uniform_means), decimal=2)
+    assert_almost_equal(np.mean(choice_means), np.mean(uniform_means), decimal=2)
+
+    # stdev of choice and uniform should be about the same
+    assert_almost_equal(np.std(choice_means), np.std(uniform_means), decimal=2)
 
 
 def test_pipeline_equivalency():
