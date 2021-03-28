@@ -34,6 +34,7 @@ except ImportError:
         raise ImportError("The module six must be installed or the version of scikit-learn version must be < 0.23")
 
 from .utils import _euclidean_distances_without_checks
+from .impostor_store import ListStore, SparseMatrixStore
 
 
 class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
@@ -357,22 +358,6 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         check_is_fitted(self, ['components_'])
         X = check_array(X)
 
-        return np.dot(X, self.components_.T)
-
-    def _transform_without_checks(self, X):
-        """Same as transform but without validating the inputs.
-
-        Parameters
-        ----------
-        X : array, shape (n_samples, n_features)
-            Data samples.
-
-        Returns
-        -------
-        X_embedded: array, shape (n_samples, n_components)
-            The data samples transformed.
-
-        """
         return np.dot(X, self.components_.T)
 
     def _validate_params(self, X, y):
@@ -729,14 +714,14 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
                                                 cls_name, '-' * len(header)))
 
         t_funcall = time.time()
-        X_embedded = self._transform_without_checks(X)
+        X_embedded = np.dot(X, self.components_.T)
 
         # Compute (squared) distances to the target neighbors
         n_neighbors = target_neighbors.shape[1]
         dist_tn = np.zeros((n_samples, n_neighbors))
         for k in range(n_neighbors):
-            dist_tn[:, k] = row_norms(X_embedded -
-                                      X_embedded[target_neighbors[:, k]],
+            ind_tn = target_neighbors[:, k]
+            dist_tn[:, k] = row_norms(X_embedded - X_embedded[ind_tn],
                                       squared=True)
 
         # Add the margin to all (squared) distances to target neighbors
@@ -800,89 +785,61 @@ class LargeMarginNearestNeighbor(BaseEstimator, TransformerMixin):
         n_samples = X_embedded.shape[0]
 
         if use_sparse:
-            # Initialize a sparse (indicator) matrix for impostors storage
-            impostors_sp = csr_matrix((n_samples, n_samples), dtype=np.int8)
-            for class_id in classes[:-1]:
-                ind_in, = np.where(y == class_id)
-                ind_out, = np.where(y > class_id)
-
-                # Split ind_out x ind_in into chunks of a size that fits
-                # in memory
-                imp_ind = _find_impostors_blockwise(
-                    X_embedded[ind_out], X_embedded[ind_in],
-                    margin_radii[ind_out], margin_radii[ind_in])
-
-                if len(imp_ind):
-                    # sample impostors if they are too many
-                    if len(imp_ind) > self.max_impostors:
-                        imp_ind = self.random_state_.choice(
-                            imp_ind, self.max_impostors, replace=False)
-
-                    dims = (len(ind_out), len(ind_in))
-                    ii, jj = np.unravel_index(imp_ind, shape=dims)
-                    # Convert indices to refer to the original data matrix
-                    imp_row = ind_out[ii]
-                    imp_col = ind_in[jj]
-                    new_imp = csr_matrix((np.ones(len(imp_row), dtype=np.int8),
-                                          (imp_row, imp_col)), dtype=np.int8,
-                                         shape=(n_samples, n_samples))
-                    impostors_sp = impostors_sp + new_imp
-
-            impostors_sp = impostors_sp.tocoo(copy=False)
-            imp_row = impostors_sp.row
-            imp_col = impostors_sp.col
-
-            # Make sure we do not exceed max_impostors
-            n_impostors = len(imp_row)
-            if n_impostors > self.max_impostors:
-                ind_sampled = self.random_state_.choice(
-                    n_impostors, self.max_impostors, replace=False)
-                imp_row = imp_row[ind_sampled]
-                imp_col = imp_col[ind_sampled]
-
-            imp_dist = _paired_distances_blockwise(X_embedded, imp_row,
-                                                   imp_col)
+            imp_store = SparseMatrixStore(n_samples=n_samples)
         else:
-            # Initialize lists for impostors storage
-            imp_row, imp_col, imp_dist = [], [], []
-            for class_id in classes[:-1]:
-                ind_in, = np.where(y == class_id)
-                ind_out, = np.where(y > class_id)
+            imp_store = ListStore()
 
-                # Split ind_out x ind_in into chunks of a size that fits in
-                # memory
-                imp_ind, dist_batch = _find_impostors_blockwise(
-                    X_embedded[ind_out], X_embedded[ind_in],
-                    margin_radii[ind_out], margin_radii[ind_in],
-                    return_distance=True)
+        return_distance = not use_sparse
+        for class_id in classes[:-1]:
+            ind_in, = np.where(y == class_id)
+            ind_out, = np.where(y > class_id)
 
-                if len(imp_ind):
-                    # sample impostors if they are too many
-                    if len(imp_ind) > self.max_impostors:
-                        ind_sampled = self.random_state_.choice(
-                            len(imp_ind), self.max_impostors, replace=False)
-                        imp_ind = imp_ind[ind_sampled]
-                        dist_batch = dist_batch[ind_sampled]
+            # Split ind_out x ind_in into chunks that fit in memory
+            imp_ind = _find_impostors_blockwise(
+                X_embedded[ind_out], X_embedded[ind_in],
+                margin_radii[ind_out], margin_radii[ind_in],
+                return_distance=return_distance
+            )
 
-                    dims = (len(ind_out), len(ind_in))
-                    ii, jj = np.unravel_index(imp_ind, shape=dims)
-                    # Convert indices to refer to the original data matrix
-                    imp_row.extend(ind_out[ii])
-                    imp_col.extend(ind_in[jj])
-                    imp_dist.extend(dist_batch)
+            imp_dist = None
+            if return_distance:
+                imp_ind, imp_dist = imp_ind
 
-            imp_row = np.asarray(imp_row, dtype=np.intp)
-            imp_col = np.asarray(imp_col, dtype=np.intp)
-            imp_dist = np.asarray(imp_dist)
+            n_impostors = len(imp_ind)
+            if n_impostors:
+                # sample impostors if they are too many
+                if n_impostors > self.max_impostors:
+                    ind_sampled = self.random_state_.choice(
+                        n_impostors, self.max_impostors, replace=False)
 
-            # Make sure we do not exceed max_impostors
-            n_impostors = len(imp_row)
-            if n_impostors > self.max_impostors:
-                ind_sampled = self.random_state_.choice(
-                    n_impostors, self.max_impostors, replace=False)
-                imp_row = imp_row[ind_sampled]
-                imp_col = imp_col[ind_sampled]
+                    imp_ind = imp_ind[ind_sampled]
+                    if return_distance:
+                        imp_dist = imp_dist[ind_sampled]
+
+                dims = (len(ind_out), len(ind_in))
+                ii, jj = np.unravel_index(imp_ind, shape=dims)
+
+                # Convert indices to refer to the original data matrix
+                imp_row = ind_out[ii]
+                imp_col = ind_in[jj]
+
+                imp_store.extend(imp_row, imp_col, imp_dist)
+
+        imp_row, imp_col, imp_dist = imp_store.get()
+
+        # Make sure we do not exceed max_impostors
+        n_impostors = len(imp_row)
+        if n_impostors > self.max_impostors:
+            ind_sampled = self.random_state_.choice(
+                n_impostors, self.max_impostors, replace=False)
+            imp_row = imp_row[ind_sampled]
+            imp_col = imp_col[ind_sampled]
+
+            if return_distance:
                 imp_dist = imp_dist[ind_sampled]
+
+        if imp_dist is None:
+            imp_dist = _paired_distances_blockwise(X_embedded, imp_row, imp_col)
 
         impostors_graph = coo_matrix((imp_dist, (imp_row, imp_col)),
                                      shape=(n_samples, n_samples))
@@ -1138,13 +1095,15 @@ def _sum_weighted_outer_differences(X, weights):
         The sum of all outer weighted differences.
     """
 
-    weights_sym = weights + weights.T
-    diagonal = weights_sym.sum(1).getA()
-    laplacian_dot_X = diagonal * X - safe_sparse_dot(weights_sym, X,
-                                                     dense_output=True)
-    result = np.dot(X.T, laplacian_dot_X)
+    W = weights + weights.T
+    D = W.sum(1).getA()
 
-    return result
+    # X.T * (D - W) * X = X.T * (D * X - W * X)
+    # LX = D * X - W @ X  # D is n x 1, W is n x n
+    LX = D * X - safe_sparse_dot(W, X, dense_output=True)
+    ret = X.T @ LX
+
+    return ret
 
 
 def _check_scalar(x, name, target_type, min_val=None, max_val=None):
